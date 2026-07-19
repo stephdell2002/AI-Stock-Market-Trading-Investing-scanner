@@ -1,0 +1,40 @@
+# Watchman settings.
+# Everything here is tunable. Hard risk limits live in risk.yaml, not here.
+# API keys are NEVER put in this file — they come from env vars (see .env.example).
+
+data:
+  # Active market-data provider. yfinance = free, end-of-day. When a real-time
+  # provider is configured later, Module B signals stop being labeled DELAYED.
+  provider: yfinance
+  # SQLite file for the price cache, signal ledger, and paper portfolios.
+  db_path: data/watchman.db
+
+universe:
+  # Module A screening universe. Bundled snapshots: sp500, nasdaq100.
+  indices: [sp500, nasdaq100]
+  # Manual additions/removals (yfinance-style symbols, e.g. BRK-B).
+  extra_symbols: []
+  exclude_symbols: []
+
+accounts:
+  # Simulated paper accounts. Two independent books.
+  day_trading_equity: 10000.0   # Module B auto-taken paper trades
+  long_term_equity: 10000.0     # Module A simulated portfolio, monthly rebalance
+
+costs:
+  # Applied to EVERY backtest fill and EVERY paper fill. Costs are real.
+  slippage_bps: 5.0             # adverse move vs. reference price, per side
+  spread_bps: 2.0               # half-spread paid on entry and on exit
+  commission_per_trade: 0.0     # flat $ per fill (IBKR Lite-style default)
+
+screener:
+  # Module A composite score weights. Must sum to 1.0 (validated at load).
+  weights:
+    quality: 0.30
+    growth: 0.25
+    valuation: 0.25
+    momentum: 0.20
+  watchlist_size: 15            # ranked names to output (10–20 sensible)
+
+report:
+  output_dir: data/reports      # HTML dashboard + dated morning/evening briefs

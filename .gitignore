@@ -1,0 +1,18 @@
+# Environment / secrets — API keys live in env vars only, never in the repo
+.env
+
+# Runtime artifacts
+data/
+*.db
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
