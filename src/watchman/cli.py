@@ -19,8 +19,6 @@ from watchman.data.yfinance_provider import YFinanceProvider
 from watchman.db import connect
 
 _PHASE_STUBS = {
-    "scan": ("Module B pre-market scanner", 4),
-    "signals": ("Module B day-trading signal engine", 4),
     "report": ("Module D daily report", 5),
 }
 
@@ -254,6 +252,91 @@ def _backtest_decile(args, cfg, provider, start, end) -> int:
     return 0
 
 
+def _freshness_banner(provider) -> str:
+    freshness = provider.quote_freshness().value
+    if freshness == "REALTIME":
+        return "data: REALTIME"
+    return (f"data: {freshness} — NOT ACTIONABLE (informational only; add a "
+            "real-time provider key to change this)")
+
+
+def cmd_scan(args: argparse.Namespace, cfg: WatchmanConfig) -> int:
+    from watchman.signals import run_scan
+
+    provider = _make_provider(cfg)
+    conn = connect(cfg.settings.data.db_path)
+    print(f"Watchman pre-market scan | {_freshness_banner(provider)}")
+    print("Best run 8:00-9:25 ET; outside that window pre-market volume "
+          "reads low or empty.\n")
+    try:
+        outcome = run_scan(cfg, provider, conn, limit=args.limit, progress=print)
+    except Exception as exc:
+        print(f"Scan failed: {exc}")
+        return 1
+    print(f"\n=== Focus list ({len(outcome.candidates)} of {outcome.scanned} scanned; "
+          f"max {cfg.settings.signals.focus_size}) ===")
+    if not outcome.candidates:
+        print("No candidates passed the gates.")
+    for c in outcome.candidates:
+        catalyst = {True: "news", False: "-", None: "?"}[c.catalyst]
+        float_txt = f"{c.float_shares / 1e6:,.0f}M" if c.float_shares else "?"
+        atr_txt = f"{c.atr_pct:.1f}%" if c.atr_pct is not None else "?"
+        print(f"  {c.symbol:<6} gap {c.gap_pct:+6.1f}%  relvol {c.rel_vol:4.1f}x  "
+              f"px {c.last_price:8.2f}  ATR {atr_txt:>5}  float {float_txt:>7}  "
+              f"catalyst {catalyst}")
+    if outcome.rejected:
+        top = sorted(outcome.rejected.items(), key=lambda kv: -kv[1])[:5]
+        print("\nRejected: " + ", ".join(f"{n} x {r}" for r, n in top))
+    if outcome.failures:
+        print(f"Data failures: {len(outcome.failures)} symbols "
+              f"(e.g. {', '.join(list(outcome.failures)[:5])})")
+    print("\nFocus list saved for today — `watchman signals` will use it.")
+    return 0
+
+
+def cmd_signals(args: argparse.Namespace, cfg: WatchmanConfig) -> int:
+    from watchman.signals import run_signals
+
+    provider = _make_provider(cfg)
+    conn = connect(cfg.settings.data.db_path)
+    symbols = args.symbols.split(",") if args.symbols else None
+    print(f"Watchman signals | {_freshness_banner(provider)}\n")
+    try:
+        result = run_signals(cfg, provider, conn, symbols=symbols, progress=lambda _m: None)
+    except Exception as exc:
+        print(f"Signals failed: {exc}")
+        return 1
+
+    print(f"=== Signals at {result.now:%Y-%m-%d %H:%M ET} "
+          f"({len(result.symbols_evaluated)} symbols evaluated) ===")
+    if not result.signals:
+        print("No setups triggered on the latest completed bar.")
+    for s in result.signals:
+        targets = " / ".join(f"{t:.2f}" for t in s.targets)
+        print(f"\n{s.symbol}  {s.setup}  {s.direction.upper()}  [{s.freshness_label}]")
+        print(f"  entry {s.entry:.2f}  stop {s.stop:.2f}  targets {targets}  "
+              f"R:R {s.risk_reward:.1f}")
+        equity = cfg.settings.accounts.day_trading_equity
+        print(f"  size {s.shares} sh (risk ${s.risk_dollars:,.2f} = "
+              f"{cfg.risk.max_risk_per_trade_pct}% of ${equity:,.0f})")
+        print(f"  confidence: {s.confidence_label}")
+        print(f"  why: {s.rationale}")
+    if result.rejected:
+        print(f"\nRejected ({len(result.rejected)}):")
+        for r in result.rejected:
+            print(f"  {r.symbol} {r.setup} {r.direction}: {r.reason}")
+    if result.failures:
+        print(f"\nNo data: {', '.join(f'{s} ({e})' for s, e in result.failures.items())}")
+    if result.unenforced_gates:
+        print("\nGates not yet enforceable (Module D wires them to the paper book):")
+        for gate in sorted(result.unenforced_gates):
+            print(f"  - {gate}")
+    if not result.actionable:
+        print("\nREMINDER: these signals are built on delayed data — study them, "
+              "do not chase them.")
+    return 0
+
+
 def _stub(command: str) -> int:
     what, phase = _PHASE_STUBS[command]
     print(f"`watchman {command}` ({what}) arrives in Phase {phase}. "
@@ -314,6 +397,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_backtest.add_argument("--limit", type=int, default=None,
                             help="momentum-decile: only the first N universe symbols")
 
+    p_scan = sub.add_parser(
+        "scan", help="Module B: pre-market scanner -> today's focus list (max 10)"
+    )
+    p_scan.add_argument("--limit", type=int, default=None,
+                        help="Scan only the first N universe symbols (trial run)")
+
+    p_signals = sub.add_parser(
+        "signals", help="Module B: evaluate ORB / VWAP / rel-vol setups now"
+    )
+    p_signals.add_argument("--symbols", default=None,
+                           help="Comma-separated symbols (default: today's focus list)")
+
     for name in _PHASE_STUBS:
         sub.add_parser(name, help=f"{_PHASE_STUBS[name][0]} (Phase {_PHASE_STUBS[name][1]})")
 
@@ -331,6 +426,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_screen(args, cfg)
     if args.command == "backtest":
         return cmd_backtest(args, cfg)
+    if args.command == "scan":
+        return cmd_scan(args, cfg)
+    if args.command == "signals":
+        return cmd_signals(args, cfg)
     return _stub(args.command)
 
 

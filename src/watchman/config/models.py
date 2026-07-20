@@ -76,6 +76,31 @@ class ScreenerConfig(BaseModel):
         return self
 
 
+class SignalsConfig(BaseModel):
+    """Module B scanner/setup tunables. The hard risk limits stay in risk.yaml."""
+
+    focus_size: int = Field(10, ge=1, le=10)  # spec: max 10 tickers per day
+    min_price: float = Field(5.0, gt=0)
+    min_avg_dollar_volume: float = Field(20_000_000.0, gt=0)
+    min_gap_pct: float = Field(2.0, gt=0)
+    min_rel_vol: float = Field(1.5, gt=0)
+    intraday_interval: str = Field("5m")
+    orb_minutes: int = Field(15, ge=5, le=60)
+
+    @model_validator(mode="after")
+    def _valid_interval(self) -> SignalsConfig:
+        allowed = {"1m", "5m", "15m", "30m", "60m"}
+        if self.intraday_interval not in allowed:
+            raise ValueError(f"intraday_interval must be one of {sorted(allowed)}")
+        minutes = int(self.intraday_interval.rstrip("m"))
+        if self.orb_minutes % minutes != 0:
+            raise ValueError(
+                f"orb_minutes ({self.orb_minutes}) must be a multiple of the "
+                f"intraday interval ({minutes}m)"
+            )
+        return self
+
+
 class ReportConfig(BaseModel):
     output_dir: Path = Path("data/reports")
 
@@ -86,6 +111,7 @@ class Settings(BaseModel):
     accounts: AccountsConfig = Field(default_factory=AccountsConfig)
     costs: CostsConfig = Field(default_factory=CostsConfig)
     screener: ScreenerConfig = Field(default_factory=ScreenerConfig)
+    signals: SignalsConfig = Field(default_factory=SignalsConfig)
     report: ReportConfig = Field(default_factory=ReportConfig)
 
 

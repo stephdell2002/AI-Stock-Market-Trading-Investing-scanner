@@ -40,6 +40,13 @@ CREATE TABLE IF NOT EXISTS statements_cache (
     cashflow    TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS focus_lists (
+    scan_date   TEXT PRIMARY KEY,        -- ISO date of the pre-market scan
+    created_at  TEXT NOT NULL,
+    symbols     TEXT NOT NULL,           -- JSON list, ranked
+    details     TEXT NOT NULL            -- JSON per-candidate numbers
+);
+
 CREATE TABLE IF NOT EXISTS screener_runs (
     run_id         INTEGER PRIMARY KEY AUTOINCREMENT,
     run_at         TEXT NOT NULL,

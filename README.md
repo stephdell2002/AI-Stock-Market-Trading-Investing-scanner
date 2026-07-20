@@ -50,11 +50,15 @@ watchman screen --limit 30   # quick trial over the first 30 universe names
 watchman screen --export-tv tv.txt   # also write a TradingView-importable watchlist
 watchman backtest ma-cross           # walk-forward demo (SPY, out-of-sample first)
 watchman backtest momentum-decile    # honest decile backtest of the Module A score
+watchman scan                # pre-market scanner -> today's focus list (8:00-9:25 ET)
+watchman signals             # ORB / VWAP / rel-vol setups on the focus list
 pytest                       # the whole suite runs offline
 ```
 
-`watchman scan`, `signals`, and `report` arrive in later phases and
-currently say so instead of pretending.
+`watchman report` arrives in Phase 5 and currently says so instead of
+pretending. On free yfinance data every scan result and signal is labeled
+`DELAYED — NOT ACTIONABLE` — study them, don't chase them; add a real-time
+provider key (`.env`) to lift the label.
 
 ## Connecting other platforms (the legitimate paths)
 
@@ -78,8 +82,8 @@ currently say so instead of pretending.
 | 1 | Skeleton, config, data layer (yfinance), tests | ✅ done |
 | 2 | Module A screener + ranked watchlist | ✅ done |
 | 3 | Module C backtester + honest Module A backtest | ✅ done |
-| 4 | Module B scanner + three intraday setups | pending sign-off |
-| 5 | Module D paper engine, signal ledger, HTML report | — |
+| 4 | Module B scanner + three intraday setups | ✅ done |
+| 5 | Module D paper engine, signal ledger, HTML report | pending sign-off |
 | 6 | Polish, scheduling, first-90-days checklist | — |
 
 Architecture and conventions live in [CLAUDE.md](CLAUDE.md).

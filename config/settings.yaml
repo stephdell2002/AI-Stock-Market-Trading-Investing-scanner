@@ -37,5 +37,16 @@ screener:
   watchlist_size: 15            # ranked names to output (10–20 sensible)
   data_max_age_days: 3          # refetch fundamentals/statements older than this
 
+signals:
+  # Module B pre-market scanner + intraday setups. Hard risk limits (1%/trade,
+  # 3 positions, circuit breaker, R:R >= 2) live in risk.yaml, not here.
+  focus_size: 10                # max tickers on the daily focus list (spec cap)
+  min_price: 5.0                # skip sub-$5 names
+  min_avg_dollar_volume: 20000000  # 20-day avg dollar-volume liquidity gate
+  min_gap_pct: 2.0              # pre-market gap threshold (absolute %)
+  min_rel_vol: 1.5              # pre-market volume vs typical fraction of a day
+  intraday_interval: 5m         # bar size for setups (1m/5m/15m/30m/60m)
+  orb_minutes: 15               # opening-range length for the ORB setup
+
 report:
   output_dir: data/reports      # HTML dashboard + dated morning/evening briefs

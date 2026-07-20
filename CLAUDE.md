@@ -44,7 +44,16 @@ src/watchman/
   data/snapshots/         sp500.csv, nasdaq100.csv, meta.yaml (provenance)
   db.py                   SQLite schema/connection (cache now; ledger later)
   risk.py                 shares_for_risk, risk_reward
-  cli.py                  argparse CLI: universe/fetch/screen/backtest live
+  cli.py                  argparse CLI: universe/fetch/screen/backtest/scan/
+                          signals live; report stubbed (Phase 5)
+  signals/                Module B (Phase 4):
+    model.py              Signal (all spec fields), RejectedSignal, GateState,
+                          ConfidenceSource protocol (ledger plugs in Phase 5)
+    indicators.py         ATR, session VWAP, relative volume, session slicing
+    scanner.py            pre-market gates + ranking -> focus list (max 10)
+    setups.py             ORB / VWAP reclaim-reject / rel-vol continuation
+    engine.py             SignalEngine.finalize: every gate in one place
+    runner.py             run_scan (persists focus list) + run_signals
   backtest/               Module C (Phase 3):
     engine.py             event-driven loop: pinned views, next-open fills, costs
     metrics.py            CAGR/Sharpe/Sortino/maxDD/win rate/expectancy +
@@ -120,9 +129,19 @@ tests/                    ALL tests run offline; yfinance is mocked
    does include them). Decile backtest is MOMENTUM-ONLY (fundamentals aren't
    point-in-time) and prints survivorship/momentum-only disclaimers on every
    run — those disclaimers are load-bearing, keep them.
-4. Module B pre-market scanner + ORB / VWAP reclaim-reject / rel-vol
+4. ✅ Module B pre-market scanner + ORB / VWAP reclaim-reject / rel-vol
    continuation setup classes; every signal: entry/stop/targets, R:R ≥ 2,
    size per risk config, confidence = rolling live win rate, rationale.
+   Module B notes: setups only trigger on the LAST completed intraday bar
+   (stale triggers are not fresh signals); AsOfView hides in-progress bars
+   (a 5m bar starting 10:00 exists only from 10:05). SignalEngine.finalize
+   is the single gate path — R:R, sizing, circuit breaker, max positions,
+   dedup — with breaker/positions reported as UNENFORCED until Module D's
+   paper book supplies live P&L. Scanner rel-vol uses an explicit
+   TYPICAL_PREMARKET_FRACTION=0.05 approximation (no free historical
+   premarket baseline); news catalyst is None (shown '?') when the provider
+   can't serve news. ConfidenceSource protocol is how the Phase 5 ledger
+   plugs rolling live win rates into signals.
 5. Module D paper engine + signal ledger (every signal's outcome logged;
    30/90-day live win rates shown everywhere) + self-contained HTML report.
 6. Polish: README, cron/Task Scheduler instructions, first-90-days checklist.
@@ -161,4 +180,6 @@ watchman fetch AAPL --days 365  # cache daily bars
 watchman screen [--top N] [--limit K] [--export-tv FILE]  # Module A watchlist
 watchman backtest ma-cross [--symbol SPY] [--years 6]     # walk-forward demo
 watchman backtest momentum-decile [--years 6] [--deciles 10] [--limit K]
+watchman scan [--limit K]       # pre-market focus list (run 8:00-9:25 ET)
+watchman signals [--symbols A,B]  # evaluate setups (default: today's focus list)
 ```
