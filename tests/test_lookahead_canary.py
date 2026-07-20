@@ -98,6 +98,28 @@ class TestFundamentalsDiscipline:
         assert after.fundamentals("TEST").available_at == available
 
 
+class TestStatementsDiscipline:
+    """Free-source statements are latest-restatement only — same honesty rule
+    as fundamentals: refused for historical views, allowed live."""
+
+    def _provider(self, q1_bars):
+        from tests.screener_fixtures import make_statements
+
+        provider = SyntheticProvider(q1_bars)
+        stmts = make_statements("TEST")
+        provider.financial_statements = lambda symbol: stmts  # type: ignore[method-assign]
+        return provider
+
+    def test_refused_for_historical_views(self, q1_bars):
+        view = AsOfView(self._provider(q1_bars), datetime(2024, 2, 15, 12, 0))
+        with pytest.raises(LookaheadError):
+            view.financial_statements("TEST")
+
+    def test_allowed_live(self, q1_bars):
+        view = AsOfView(self._provider(q1_bars), datetime.now(tz=ET))
+        assert view.financial_statements("TEST").symbol == "TEST"
+
+
 class TestViewMetadata:
     def test_freshness_passes_through(self, synthetic_provider):
         view = AsOfView(synthetic_provider, datetime(2024, 2, 15, 18, 0))

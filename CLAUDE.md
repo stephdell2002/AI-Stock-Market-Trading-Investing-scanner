@@ -44,9 +44,16 @@ src/watchman/
   data/snapshots/         sp500.csv, nasdaq100.csv, meta.yaml (provenance)
   db.py                   SQLite schema/connection (cache now; ledger later)
   risk.py                 shares_for_risk, risk_reward
-  cli.py                  argparse CLI: universe/fetch live; others stubbed
-  screener|signals|backtest|paper|broker|report/   Phase 2–5 modules (docstring stubs)
+  cli.py                  argparse CLI: universe/fetch/screen live; others stubbed
+  screener/               Module A (Phase 2):
+    metrics.py            pure metric extraction; None = honestly unknown
+    scoring.py            sector-relative valuation, percentile ranks, composite
+    thesis.py             plain-English theses citing actual numbers
+    store.py              run persistence + deteriorator rules (explicit consts)
+    runner.py             orchestration; all data via AsOfView(now)
+  signals|backtest|paper|broker|report/   Phase 3–5 modules (docstring stubs)
 tests/                    ALL tests run offline; yfinance is mocked
+  screener_fixtures.py    synthetic-company builders (CompanyProvider)
 ```
 
 ## Conventions
@@ -86,8 +93,14 @@ tests/                    ALL tests run offline; yfinance is mocked
 ## Build phases (pause for user sign-off after each)
 
 1. ✅ Skeleton, config, data layer + yfinance, CLAUDE.md, tests green.
-2. Module A screener: four-pillar composite (Quality/Growth/Valuation/
+2. ✅ Module A screener: four-pillar composite (Quality/Growth/Valuation/
    Momentum), ranked watchlist w/ theses citing numbers, deteriorator flags.
+   Screener notes: yfinance statements give ~4 fiscal years, so "3-5y CAGR"
+   is a ~3y CAGR (labeled "~3y" in output). ROIC prefers the provider's
+   Invested Capital line, falls back to debt+equity−cash. Valuation is
+   sector-relative (median of ≥5 peers, else universe median). Missing
+   pillars renormalize weights rather than scoring zero; coverage is shown.
+   Deteriorator thresholds are explicit constants in screener/store.py.
 3. Module C event-driven backtester, walk-forward validation; decile backtest
    of Module A score with honest warts. Adds lookahead canary at engine
    level, known-answer test on synthetic data, costs-applied test.
@@ -105,4 +118,5 @@ tests/                    ALL tests run offline; yfinance is mocked
 .venv/bin/ruff check .          # lint
 watchman universe [--refresh]   # resolved universe / rebuild snapshots
 watchman fetch AAPL --days 365  # cache daily bars
+watchman screen [--top N] [--limit K]  # Module A ranked watchlist (K = trial run)
 ```

@@ -35,6 +35,7 @@ screener:
     valuation: 0.25
     momentum: 0.20
   watchlist_size: 15            # ranked names to output (10–20 sensible)
+  data_max_age_days: 3          # refetch fundamentals/statements older than this
 
 report:
   output_dir: data/reports      # HTML dashboard + dated morning/evening briefs

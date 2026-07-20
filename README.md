@@ -44,19 +44,22 @@ pip install -e ".[dev]"
 watchman universe            # show the resolved screening universe
 watchman universe --refresh  # rebuild index membership from Wikipedia (needs internet)
 watchman fetch AAPL          # pull + cache a year of daily bars via yfinance
+watchman screen              # Module A: ranked watchlist with theses (first run
+                             #   fetches the whole universe: 10-20 min, then cached)
+watchman screen --limit 30   # quick trial over the first 30 universe names
 pytest                       # the whole suite runs offline
 ```
 
-`watchman screen`, `scan`, `signals`, `backtest`, and `report` arrive in
-later phases and currently say so instead of pretending.
+`watchman scan`, `signals`, `backtest`, and `report` arrive in later phases
+and currently say so instead of pretending.
 
 ## Status
 
 | Phase | Scope | State |
 |-------|-------|-------|
 | 1 | Skeleton, config, data layer (yfinance), tests | ✅ done |
-| 2 | Module A screener + ranked watchlist | pending sign-off |
-| 3 | Module C backtester + honest Module A backtest | — |
+| 2 | Module A screener + ranked watchlist | ✅ done |
+| 3 | Module C backtester + honest Module A backtest | pending sign-off |
 | 4 | Module B scanner + three intraday setups | — |
 | 5 | Module D paper engine, signal ledger, HTML report | — |
 | 6 | Polish, scheduling, first-90-days checklist | — |

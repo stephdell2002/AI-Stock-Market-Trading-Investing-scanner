@@ -60,6 +60,8 @@ class ScreenerConfig(BaseModel):
         }
     )
     watchlist_size: int = Field(15, ge=5, le=50)
+    #: Cached fundamentals/statements older than this are refetched.
+    data_max_age_days: int = Field(3, ge=1, le=30)
 
     @model_validator(mode="after")
     def _weights_valid(self) -> ScreenerConfig:

@@ -25,6 +25,41 @@ CREATE TABLE IF NOT EXISTS bar_coverage (
     end_date    TEXT NOT NULL,
     fetched_at  TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS fundamentals_cache (
+    symbol      TEXT PRIMARY KEY,
+    fetched_at  TEXT NOT NULL,
+    payload     TEXT NOT NULL            -- Fundamentals as JSON
+);
+
+CREATE TABLE IF NOT EXISTS statements_cache (
+    symbol      TEXT PRIMARY KEY,
+    fetched_at  TEXT NOT NULL,
+    income      TEXT NOT NULL,           -- DataFrames as JSON (orient=split)
+    balance     TEXT NOT NULL,
+    cashflow    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS screener_runs (
+    run_id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_at         TEXT NOT NULL,
+    universe_size  INTEGER NOT NULL,
+    weights        TEXT NOT NULL         -- pillar weights used, as JSON
+);
+
+CREATE TABLE IF NOT EXISTS screener_scores (
+    run_id     INTEGER NOT NULL REFERENCES screener_runs(run_id),
+    symbol     TEXT NOT NULL,
+    rank       INTEGER,                  -- NULL when composite could not be scored
+    composite  REAL,
+    quality    REAL,
+    growth     REAL,
+    valuation  REAL,
+    momentum   REAL,
+    coverage   REAL NOT NULL,
+    metrics    TEXT NOT NULL,            -- raw metric values, as JSON
+    PRIMARY KEY (run_id, symbol)
+);
 """
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 from tests.conftest import SyntheticProvider, make_bars
@@ -69,3 +69,77 @@ def test_persistence_across_connections(tmp_path):
     got = cache2.daily_bars("TEST", datetime(2024, 2, 1), datetime(2024, 2, 29))
     assert not got.empty
     assert fresh_provider.calls == []  # nothing refetched
+
+
+class TestFundamentalsAndStatementsCaches:
+    def _counting_provider(self):
+        from tests.screener_fixtures import CompanyProvider, make_fundamentals, make_statements
+
+        provider = CompanyProvider(
+            {"TEST": {"fundamentals": make_fundamentals(), "statements": make_statements()}}
+        )
+        counts = {"fundamentals": 0, "statements": 0}
+        orig_f, orig_s = provider.fundamentals, provider.financial_statements
+
+        def count_f(symbol):
+            counts["fundamentals"] += 1
+            return orig_f(symbol)
+
+        def count_s(symbol):
+            counts["statements"] += 1
+            return orig_s(symbol)
+
+        provider.fundamentals = count_f  # type: ignore[method-assign]
+        provider.financial_statements = count_s  # type: ignore[method-assign]
+        return provider, counts
+
+    def test_fundamentals_cached_within_max_age(self, tmp_path):
+        from watchman.data.cache import FundamentalsCache
+
+        provider, counts = self._counting_provider()
+        cache = FundamentalsCache(provider, connect(tmp_path / "f.db"), timedelta(days=3))
+        first = cache.get_or_fetch("TEST")
+        second = cache.get_or_fetch("TEST")
+        assert counts["fundamentals"] == 1
+        assert second.market_cap == first.market_cap
+        assert second.fetched_at == first.fetched_at  # true fetch time preserved
+
+    def test_fundamentals_refetched_after_max_age(self, tmp_path):
+        from watchman.data.cache import FundamentalsCache
+
+        provider, counts = self._counting_provider()
+        cache = FundamentalsCache(provider, connect(tmp_path / "f.db"), timedelta(seconds=0))
+        cache.get_or_fetch("TEST")
+        cache.get_or_fetch("TEST")
+        assert counts["fundamentals"] == 2
+
+    def test_statements_roundtrip_preserves_frames(self, tmp_path):
+        from watchman.data.cache import StatementsCache
+        from watchman.screener.metrics import line
+
+        provider, counts = self._counting_provider()
+        cache = StatementsCache(provider, connect(tmp_path / "s.db"), timedelta(days=3))
+        cache.get_or_fetch("TEST")
+        got = cache.get_or_fetch("TEST")  # this one comes from SQLite
+        assert counts["statements"] == 1
+        revenue = line(got.income, "Total Revenue")
+        assert revenue is not None
+        assert float(revenue.iloc[-1]) == 172.8
+        assert got.point_in_time is False
+
+    def test_cached_provider_composes_everything(self, tmp_path):
+        from tests.screener_fixtures import make_price_history
+
+        from watchman.data.cache import CachedProvider
+        from watchman.data.provider import Freshness
+
+        provider, counts = self._counting_provider()
+        provider.companies["TEST"]["bars"] = make_price_history(0.001, days=30)
+        cached = CachedProvider(provider, connect(tmp_path / "c.db"))
+        assert cached.name == "company-synthetic+cache"
+        assert cached.quote_freshness() == Freshness.EOD
+        cached.fundamentals("TEST")
+        cached.fundamentals("TEST")
+        cached.financial_statements("TEST")
+        cached.financial_statements("TEST")
+        assert counts == {"fundamentals": 1, "statements": 1}

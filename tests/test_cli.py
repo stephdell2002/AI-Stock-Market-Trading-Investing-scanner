@@ -20,7 +20,7 @@ def test_universe_lists_symbols(capsys):
 
 
 def test_stub_commands_name_their_phase(capsys):
-    stubs = [("screen", 2), ("backtest", 3), ("scan", 4), ("signals", 4), ("report", 5)]
+    stubs = [("backtest", 3), ("scan", 4), ("signals", 4), ("report", 5)]
     for command, phase in stubs:
         rc = main(["--config-dir", REPO_CONFIG, command])
         assert rc == 0

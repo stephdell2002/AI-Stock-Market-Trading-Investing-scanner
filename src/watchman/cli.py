@@ -18,7 +18,6 @@ from watchman.data.yfinance_provider import YFinanceProvider
 from watchman.db import connect
 
 _PHASE_STUBS = {
-    "screen": ("Module A long-term screener", 2),
     "backtest": ("Module C backtesting engine", 3),
     "scan": ("Module B pre-market scanner", 4),
     "signals": ("Module B day-trading signal engine", 4),
@@ -84,6 +83,69 @@ def cmd_fetch(args: argparse.Namespace, cfg: WatchmanConfig) -> int:
     return 0
 
 
+def cmd_screen(args: argparse.Namespace, cfg: WatchmanConfig) -> int:
+    from watchman.screener import run_screen
+
+    provider = _make_provider(cfg)
+    conn = connect(cfg.settings.data.db_path)
+    print(
+        f"Watchman screen | universe: {', '.join(cfg.settings.universe.indices)}"
+        f"{f' (limit {args.limit})' if args.limit else ''} | provider: {provider.name} "
+        f"(freshness: {provider.quote_freshness().value})"
+    )
+    print("First run fetches fundamentals for the whole universe and can take "
+          "10-20 minutes on yfinance; later runs use the cache.\n")
+    try:
+        result = run_screen(
+            cfg, provider, conn, top=args.top, limit=args.limit, progress=print,
+        )
+    except Exception as exc:  # CLI boundary: report, don't trace-dump
+        print(f"Screen failed: {exc}")
+        return 1
+
+    scores = result.scored.scores
+    ranked = scores[scores["rank"].notna()]
+    top_n = ranked.head(args.top or cfg.settings.screener.watchlist_size)
+
+    print(f"\n=== Watchlist (top {len(top_n)} of {len(ranked)} scored; "
+          f"{result.universe_size} in universe) ===")
+    display = top_n[["name", "sector", "composite", *_PILLARS, "coverage"]].copy()
+    display["composite"] = display["composite"].round(1)
+    for pillar in _PILLARS:
+        display[pillar] = display[pillar].round(0)
+    display["coverage"] = (display["coverage"] * 100).round(0).astype(int).astype(str) + "%"
+    display.index.name = "symbol"
+    print(display.to_string())
+
+    print("\n=== Theses ===")
+    for symbol, thesis in result.theses.items():
+        print(f"\n{symbol}: {thesis}")
+
+    print("\n=== Deteriorators ===")
+    if result.previous_run_at is None:
+        print("First stored run - nothing to compare against yet.")
+    elif not result.deteriorators:
+        print(f"None flagged vs previous run ({result.previous_run_at:%Y-%m-%d %H:%M}).")
+    else:
+        for d in result.deteriorators:
+            curr_rank = d.curr_rank if d.curr_rank is not None else "unranked"
+            print(f"  {d.symbol}: rank {d.prev_rank} -> {curr_rank}; {d.reason}")
+
+    if result.failures:
+        print(f"\nData failures ({len(result.failures)} symbols): "
+              f"{', '.join(sorted(result.failures)[:15])}"
+              f"{'...' if len(result.failures) > 15 else ''}")
+
+    print(f"\nHonesty notes: prices are {result.freshness} (as of last close); "
+          "fundamentals are the latest snapshot, NOT point-in-time; statement "
+          "history is ~4 fiscal years, so CAGRs are ~3-year figures. "
+          f"Run saved as #{result.run_id} for deteriorator tracking.")
+    return 0
+
+
+_PILLARS = ["quality", "growth", "valuation", "momentum"]
+
+
 def _stub(command: str) -> int:
     what, phase = _PHASE_STUBS[command]
     print(f"`watchman {command}` ({what}) arrives in Phase {phase}. "
@@ -116,6 +178,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_fetch.add_argument("--days", type=int, default=365)
     p_fetch.add_argument("--tail", type=int, default=10, help="Rows to display")
 
+    p_screen = sub.add_parser(
+        "screen", help="Module A: rank the universe by four-pillar composite score"
+    )
+    p_screen.add_argument("--top", type=int, default=None,
+                          help="Watchlist size (default: settings.yaml watchlist_size)")
+    p_screen.add_argument("--limit", type=int, default=None,
+                          help="Screen only the first N universe symbols (quick trial run)")
+
     for name in _PHASE_STUBS:
         sub.add_parser(name, help=f"{_PHASE_STUBS[name][0]} (Phase {_PHASE_STUBS[name][1]})")
 
@@ -129,6 +199,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_universe(args, cfg)
     if args.command == "fetch":
         return cmd_fetch(args, cfg)
+    if args.command == "screen":
+        return cmd_screen(args, cfg)
     return _stub(args.command)
 
 

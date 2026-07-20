@@ -125,3 +125,31 @@ def test_fundamentals_tolerates_junk_values(provider):
 
 def test_freshness_is_eod(provider):
     assert provider.quote_freshness() == Freshness.EOD
+
+
+class TestFinancialStatements:
+    def test_statements_labeled_not_point_in_time(self, provider):
+        stmt_df = pd.DataFrame(
+            {pd.Timestamp("2025-12-31"): [100.0], pd.Timestamp("2024-12-31"): [90.0]},
+            index=["Total Revenue"],
+        )
+        FakeTicker.income_stmt = stmt_df
+        FakeTicker.balance_sheet = stmt_df
+        FakeTicker.cashflow = stmt_df
+        got = provider.financial_statements("aapl")
+        assert got.symbol == "AAPL"
+        assert got.point_in_time is False
+        assert "Total Revenue" in got.income.index
+
+    def test_broken_statement_comes_back_empty_not_crashing(self, provider):
+        class Exploding:
+            def __get__(self, obj, objtype=None):
+                raise RuntimeError("yfinance parse error")
+
+        FakeTicker.income_stmt = pd.DataFrame({"a": [1.0]})
+        FakeTicker.balance_sheet = property(lambda self: (_ for _ in ()).throw(RuntimeError))
+        FakeTicker.cashflow = pd.DataFrame()
+        got = provider.financial_statements("AAPL")
+        assert not got.income.empty
+        assert got.balance.empty  # failed statement -> empty, metrics say None
+        assert got.cashflow.empty
