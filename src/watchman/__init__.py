@@ -3,4 +3,4 @@
 Paper trading only. Credibility through statistical honesty, not optimism.
 """
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"

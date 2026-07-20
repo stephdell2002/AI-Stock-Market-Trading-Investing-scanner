@@ -80,6 +80,9 @@ src/watchman/
     briefs.py             dated morning brief / evening recap text files
 tests/                    ALL tests run offline; yfinance is mocked
   screener_fixtures.py    synthetic-company builders (CompanyProvider)
+  intraday_fixtures.py    intraday bar / IntradayProvider builders (Module B/D)
+scripts/                  watchman_run.sh + .ps1 (phase runner), crontab.example
+docs/                     scheduling.md, first-90-days.md
 ```
 
 ## Conventions
@@ -162,7 +165,14 @@ tests/                    ALL tests run offline; yfinance is mocked
    (documented drift). Divergence warnings need a recorded baseline
    (setup_baselines) + >=20 resolved signals. Reports are self-contained
    HTML (inline SVG, no scripts) + dated text briefs.
-6. Polish: README, cron/Task Scheduler instructions, first-90-days checklist.
+6. ✅ Polish: full README (daily rhythm, layout), scheduling scripts
+   (scripts/watchman_run.sh + .ps1, crontab.example) with docs/scheduling.md,
+   and docs/first-90-days.md (the go/no-go checklist for real capital).
+   Scheduler notes: one runner script, phases morning/intraday/evening/weekly/
+   monthly; each phase runs all its steps even if one fails (tallied into the
+   exit code) and logs to data/logs/<phase>-<date>.log; ET timezone is the
+   documented gotcha. v1 is complete (version 1.0.0) and paper-only — the
+   real-money decision is docs/first-90-days.md, never a code change.
 
 ## Integration roadmap (stay legitimate)
 

@@ -35,35 +35,74 @@ Real-money day trading in the US requires **$25,000+ equity in a margin
 account** under FINRA's pattern day trader rule. Paper trading has no such
 limit — one more reason Watchman proves everything on paper first.
 
-## Quickstart
+## Install
 
 ```bash
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-
-watchman universe            # show the resolved screening universe
-watchman universe --refresh  # rebuild index membership from Wikipedia (needs internet)
-watchman fetch AAPL          # pull + cache a year of daily bars via yfinance
-watchman screen              # Module A: ranked watchlist with theses (first run
-                             #   fetches the whole universe: 10-20 min, then cached)
-watchman screen --limit 30   # quick trial over the first 30 universe names
-watchman screen --export-tv tv.txt   # also write a TradingView-importable watchlist
-watchman backtest ma-cross           # walk-forward demo (SPY, out-of-sample first)
-watchman backtest momentum-decile    # honest decile backtest of the Module A score
-watchman scan                # pre-market scanner -> today's focus list (8:00-9:25 ET)
-watchman signals             # setups on the focus list; auto-taken as paper trades
-watchman report              # self-contained HTML dashboard (data/reports/)
-watchman report --brief morning   # dated text brief (also: evening)
-watchman report --rebalance-longterm  # monthly Module A paper rebalance (if due)
+watchman --version
 pytest                       # the whole suite runs offline
 ```
 
-On free yfinance data every scan result and signal is labeled
-`DELAYED — NOT ACTIONABLE` — study them, don't chase them; add a real-time
-provider key (`.env`) to lift the label. Every signal is logged in the
-ledger with its eventual outcome (target / stopped / expired, pessimistic
-same-bar rule), and each setup's rolling 30/90-day LIVE win rate feeds back
-into new signals' confidence — the system grades its own homework.
+Copy `.env.example` to `.env` if you have a real-time data key (Polygon /
+Finnhub / FMP). Without one, Watchman runs on free yfinance EOD data and labels
+every intraday signal `DELAYED — NOT ACTIONABLE`.
+
+## The daily rhythm
+
+Watchman is a set of commands you run on the market's clock. Automate them with
+the scheduler ([docs/scheduling.md](docs/scheduling.md)) or run them by hand:
+
+```bash
+# Before the open (8:00–9:25 ET)
+watchman scan                     # gap/volume/float/ATR/news → focus list (≤10)
+watchman report --brief morning   # dated plan for the day
+
+# During the session (every ~5 min)
+watchman signals                  # ORB / VWAP / rel-vol setups on completed bars;
+                                  #   auto-taken as paper trades, outcomes logged
+
+# After the close (~16:15 ET)
+watchman signals                  # final resolve / expire
+watchman report --brief evening   # dated recap with per-setup live win rates
+watchman report                   # self-contained HTML dashboard → data/reports/
+
+# Weekly / monthly
+watchman screen                   # refresh the Module A watchlist + deteriorators
+watchman report --rebalance-longterm   # monthly long-term paper rebalance
+```
+
+Every signal is logged in the ledger with its eventual outcome (target /
+stopped / expired, with same-bar ambiguity resolved pessimistically), and each
+setup's rolling 30/90-day **live** win rate feeds back into new signals'
+confidence — the system grades its own homework.
+
+## Command reference
+
+```bash
+watchman universe [--refresh] [--all]      # resolved screening universe
+watchman fetch AAPL [--days 365]           # cache daily bars for one symbol
+watchman screen [--top N] [--limit K] [--export-tv FILE]   # Module A watchlist
+watchman backtest ma-cross [--symbol SPY] [--years 6]      # walk-forward demo
+watchman backtest momentum-decile [--years 6] [--deciles 10] [--limit K]
+watchman scan [--limit K]                  # pre-market focus list
+watchman signals [--symbols A,B,C]         # evaluate setups + auto-take paper
+watchman report [--brief morning|evening] [--rebalance-longterm [--force]]
+```
+
+The first `watchman screen` fetches fundamentals for the whole universe (10–20
+min on yfinance); later runs use the SQLite cache. Global `--config-dir` points
+at a different `config/` directory.
+
+## Scheduling & evaluation
+
+- **[docs/scheduling.md](docs/scheduling.md)** — run the daily rhythm
+  unattended via **cron** (Linux/macOS, `scripts/watchman_run.sh` +
+  `scripts/crontab.example`) or **Windows Task Scheduler**
+  (`scripts/watchman_run.ps1`), including the all-important ET timezone note.
+- **[docs/first-90-days.md](docs/first-90-days.md)** — the go/no-go checklist
+  for deciding whether any signal has earned real capital. Read this before you
+  ever think about funding the strategy; the default answer is "not yet."
 
 ## Connecting other platforms (the legitimate paths)
 
@@ -79,8 +118,30 @@ into new signals' confidence — the system grades its own homework.
   on manually in Wealthsimple. Same for Robinhood/Webull.
 - **IBKR / Tradier / Schwab / Alpaca** — official APIs; these are the Module E
   adapter candidates, read-only first, and only when you provide credentials.
+  The v1 `BrokerAdapter` interface has no order-placement method by design.
 
-## Status
+## Project layout
+
+```
+config/         settings.yaml (tunables) + risk.yaml (hard limits)
+src/watchman/
+  config/       pydantic models; keys from env vars only
+  data/         DataProvider + AsOfView (the point-in-time honesty core),
+                yfinance provider, SQLite caches, universe snapshots
+  screener/     Module A: four-pillar composite, theses, deteriorators
+  backtest/     Module C: event-driven engine, walk-forward, honest decile
+  signals/      Module B: scanner, ORB/VWAP/rel-vol setups, gate engine
+  paper/        Module D: paper books, signal ledger, auto-take + resolve
+  report/       self-contained HTML dashboard + dated text briefs
+  broker/       Module E contract (read-only) + official-API registry
+scripts/        cron / Task Scheduler runners
+docs/           scheduling + first-90-days evaluation
+tests/          all offline; yfinance mocked; the lookahead canary
+```
+
+Architecture and conventions live in [CLAUDE.md](CLAUDE.md).
+
+## Status — v1 complete
 
 | Phase | Scope | State |
 |-------|-------|-------|
@@ -89,6 +150,7 @@ into new signals' confidence — the system grades its own homework.
 | 3 | Module C backtester + honest Module A backtest | ✅ done |
 | 4 | Module B scanner + three intraday setups | ✅ done |
 | 5 | Module D paper engine, signal ledger, HTML report | ✅ done |
-| 6 | Polish, scheduling, first-90-days checklist | pending sign-off |
+| 6 | Polish: README, scheduling, first-90-days checklist | ✅ done |
 
-Architecture and conventions live in [CLAUDE.md](CLAUDE.md).
+v1 is paper-only by design. The next real-money question is answered by
+[docs/first-90-days.md](docs/first-90-days.md), not by a code change.

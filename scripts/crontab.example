@@ -1,0 +1,33 @@
+# Watchman crontab (Linux / macOS). Install with:  crontab scripts/crontab.example
+# (or `crontab -e` and paste the lines below, editing the path first).
+#
+# ── TIMEZONE ─────────────────────────────────────────────────────────────────
+# The US market runs on America/New_York (ET). The CRON_TZ line below makes the
+# schedule below ET regardless of the machine's local zone. If your cron does
+# NOT support CRON_TZ (older Vixie cron), delete it and convert the times to
+# your machine's local timezone yourself.
+CRON_TZ=America/New_York
+#
+# Edit this to your checkout path:
+#   WATCHMAN_HOME=/home/you/AI-Stock-Market-Trading-Investing-scanner
+WATCHMAN_HOME=/REPLACE/WITH/PATH/TO/AI-Stock-Market-Trading-Investing-scanner
+#
+# ── DAILY RHYTHM (weekdays only; Mon-Fri = 1-5) ──────────────────────────────
+# 08:05 ET  pre-market scan -> focus list, and the morning brief
+5 8 * * 1-5   "$WATCHMAN_HOME/scripts/watchman_run.sh" morning
+#
+# Every 5 minutes 09:35-15:55 ET: evaluate setups on each completed bar,
+# resolve open paper trades, auto-take new signals. (Runs at :35..:55 of the
+# open hour and :00..:55 of the rest, stopping before the close.)
+35,40,45,50,55 9 * * 1-5    "$WATCHMAN_HOME/scripts/watchman_run.sh" intraday
+*/5 10-15 * * 1-5           "$WATCHMAN_HOME/scripts/watchman_run.sh" intraday
+#
+# 16:15 ET  after the close: final resolve/expire, evening recap, HTML report
+15 16 * * 1-5  "$WATCHMAN_HOME/scripts/watchman_run.sh" evening
+#
+# ── PERIODIC ─────────────────────────────────────────────────────────────────
+# Sunday 18:00 ET  refresh the Module A screener watchlist + deteriorators
+0 18 * * 0    "$WATCHMAN_HOME/scripts/watchman_run.sh" weekly
+#
+# 1st of the month, 18:30 ET  long-term paper rebalance into the screener top-N
+30 18 1 * *   "$WATCHMAN_HOME/scripts/watchman_run.sh" monthly
