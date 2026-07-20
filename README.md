@@ -47,11 +47,29 @@ watchman fetch AAPL          # pull + cache a year of daily bars via yfinance
 watchman screen              # Module A: ranked watchlist with theses (first run
                              #   fetches the whole universe: 10-20 min, then cached)
 watchman screen --limit 30   # quick trial over the first 30 universe names
+watchman screen --export-tv tv.txt   # also write a TradingView-importable watchlist
+watchman backtest ma-cross           # walk-forward demo (SPY, out-of-sample first)
+watchman backtest momentum-decile    # honest decile backtest of the Module A score
 pytest                       # the whole suite runs offline
 ```
 
-`watchman scan`, `signals`, `backtest`, and `report` arrive in later phases
-and currently say so instead of pretending.
+`watchman scan`, `signals`, and `report` arrive in later phases and
+currently say so instead of pretending.
+
+## Connecting other platforms (the legitimate paths)
+
+- **Yahoo Finance** — already the default data source (free, end-of-day).
+- **Real-time data** — add a Polygon/Finnhub/FMP key in `.env`; Module B will
+  use it and stop labeling signals `DELAYED — NOT ACTIONABLE`.
+- **TradingView** — has no public data API, so Watchman never scrapes it.
+  Instead: `watchman screen --export-tv` writes a watchlist file you import
+  into TradingView; TradingView alert webhooks (official feature) can feed
+  Watchman later.
+- **Wealthsimple** — has NO official trading API. Per this project's rules
+  Watchman will never scrape it; it stays a dashboard whose signals you act
+  on manually in Wealthsimple. Same for Robinhood/Webull.
+- **IBKR / Tradier / Schwab / Alpaca** — official APIs; these are the Module E
+  adapter candidates, read-only first, and only when you provide credentials.
 
 ## Status
 
@@ -59,8 +77,8 @@ and currently say so instead of pretending.
 |-------|-------|-------|
 | 1 | Skeleton, config, data layer (yfinance), tests | ✅ done |
 | 2 | Module A screener + ranked watchlist | ✅ done |
-| 3 | Module C backtester + honest Module A backtest | pending sign-off |
-| 4 | Module B scanner + three intraday setups | — |
+| 3 | Module C backtester + honest Module A backtest | ✅ done |
+| 4 | Module B scanner + three intraday setups | pending sign-off |
 | 5 | Module D paper engine, signal ledger, HTML report | — |
 | 6 | Polish, scheduling, first-90-days checklist | — |
 

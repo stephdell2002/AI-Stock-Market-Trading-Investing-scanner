@@ -44,7 +44,16 @@ src/watchman/
   data/snapshots/         sp500.csv, nasdaq100.csv, meta.yaml (provenance)
   db.py                   SQLite schema/connection (cache now; ledger later)
   risk.py                 shares_for_risk, risk_reward
-  cli.py                  argparse CLI: universe/fetch/screen live; others stubbed
+  cli.py                  argparse CLI: universe/fetch/screen/backtest live
+  backtest/               Module C (Phase 3):
+    engine.py             event-driven loop: pinned views, next-open fills, costs
+    metrics.py            CAGR/Sharpe/Sortino/maxDD/win rate/expectancy +
+                          honesty_flags (Sharpe>3, win>75% => probable bug)
+    walkforward.py        opt window N -> test window N+1; OOS is the product
+    decile.py             momentum-only decile backtest w/ mandatory disclaimers
+    strategies.py         BuyAndHold + MACross demo strategies
+  broker/adapter.py       Module E contract: READ-ONLY ABC (no order methods,
+                          by design) + BROKER_REGISTRY official-API gate
   screener/               Module A (Phase 2):
     metrics.py            pure metric extraction; None = honestly unknown
     scoring.py            sector-relative valuation, percentile ranks, composite
@@ -101,15 +110,46 @@ tests/                    ALL tests run offline; yfinance is mocked
    sector-relative (median of ≥5 peers, else universe median). Missing
    pillars renormalize weights rather than scoring zero; coverage is shown.
    Deteriorator thresholds are explicit constants in screener/store.py.
-3. Module C event-driven backtester, walk-forward validation; decile backtest
-   of Module A score with honest warts. Adds lookahead canary at engine
-   level, known-answer test on synthetic data, costs-applied test.
+3. ✅ Module C event-driven backtester, walk-forward validation; decile
+   backtest of Module A score with honest warts. Lookahead canary at engine
+   level, known-answer test on synthetic data, costs-applied test — all in
+   tests/test_backtest_engine.py; never weaken them.
+   Engine notes: strategies get an AsOfView pinned at each session's close;
+   orders fill at the NEXT session's open with costs; long-only, no leverage,
+   dividends not credited in engine cash (decile backtest uses adj_close and
+   does include them). Decile backtest is MOMENTUM-ONLY (fundamentals aren't
+   point-in-time) and prints survivorship/momentum-only disclaimers on every
+   run — those disclaimers are load-bearing, keep them.
 4. Module B pre-market scanner + ORB / VWAP reclaim-reject / rel-vol
    continuation setup classes; every signal: entry/stop/targets, R:R ≥ 2,
    size per risk config, confidence = rolling live win rate, rationale.
 5. Module D paper engine + signal ledger (every signal's outcome logged;
    30/90-day live win rates shown everywhere) + self-contained HTML report.
 6. Polish: README, cron/Task Scheduler instructions, first-90-days checklist.
+
+## Integration roadmap (stay legitimate)
+
+Requests to hook up external platforms are answered by principle 6 and the
+BROKER_REGISTRY in broker/adapter.py — that registry is the single source of
+truth, keep it accurate:
+
+- **Yahoo Finance**: connected today via yfinance (free, EOD; quotes delayed).
+- **Real-time data**: Polygon/Finnhub/FMP env-key slots; Module B (Phase 4)
+  consumes whatever is configured and labels anything non-realtime
+  `DELAYED — NOT ACTIONABLE`.
+- **TradingView**: no public consumption API. Legitimate paths only:
+  `watchman screen --export-tv FILE` writes an importable watchlist; later,
+  inbound TradingView alert webhooks (their official feature) can feed the
+  signal ledger. Never scrape TradingView.
+- **Wealthsimple / Robinhood / Webull**: NO official trading API. Watchman
+  will never scrape them or use reverse-engineered endpoints — they stay
+  manual-execution dashboards. If an official API ships, re-evaluate.
+- **IBKR / Tradier / Schwab / Alpaca**: official APIs; Module E adapter
+  candidates (read-only first; Alpaca is the likely first adapter because its
+  paper-trading API matches Watchman's paper-first design).
+- **Order placement**: the v1 BrokerAdapter interface has no order methods on
+  purpose. Real-money execution is gated behind the first-90-days evaluation
+  and an explicit user decision, never a code change smuggled into a phase.
 
 ## Commands
 
@@ -118,5 +158,7 @@ tests/                    ALL tests run offline; yfinance is mocked
 .venv/bin/ruff check .          # lint
 watchman universe [--refresh]   # resolved universe / rebuild snapshots
 watchman fetch AAPL --days 365  # cache daily bars
-watchman screen [--top N] [--limit K]  # Module A ranked watchlist (K = trial run)
+watchman screen [--top N] [--limit K] [--export-tv FILE]  # Module A watchlist
+watchman backtest ma-cross [--symbol SPY] [--years 6]     # walk-forward demo
+watchman backtest momentum-decile [--years 6] [--deciles 10] [--limit K]
 ```

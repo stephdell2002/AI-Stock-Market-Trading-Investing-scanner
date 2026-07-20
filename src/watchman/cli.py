@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from watchman import __version__
 from watchman.config import WatchmanConfig, load_config
@@ -18,7 +19,6 @@ from watchman.data.yfinance_provider import YFinanceProvider
 from watchman.db import connect
 
 _PHASE_STUBS = {
-    "backtest": ("Module C backtesting engine", 3),
     "scan": ("Module B pre-market scanner", 4),
     "signals": ("Module B day-trading signal engine", 4),
     "report": ("Module D daily report", 5),
@@ -140,10 +140,118 @@ def cmd_screen(args: argparse.Namespace, cfg: WatchmanConfig) -> int:
           "fundamentals are the latest snapshot, NOT point-in-time; statement "
           "history is ~4 fiscal years, so CAGRs are ~3-year figures. "
           f"Run saved as #{result.run_id} for deteriorator tracking.")
+
+    if args.export_tv:
+        from watchman.data.universe import to_tradingview_symbol
+
+        path = Path(args.export_tv)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            "\n".join(to_tradingview_symbol(s) for s in top_n.index) + "\n",
+            encoding="utf-8",
+        )
+        print(f"TradingView watchlist written to {path} "
+              "(import via TradingView watchlist menu).")
     return 0
 
 
 _PILLARS = ["quality", "growth", "valuation", "momentum"]
+
+
+def cmd_backtest(args: argparse.Namespace, cfg: WatchmanConfig) -> int:
+    from watchman.data.cache import CachedProvider
+
+    provider = CachedProvider(_make_provider(cfg), connect(cfg.settings.data.db_path))
+    end = datetime.now()
+    start = end - timedelta(days=int(args.years * 365.25))
+    try:
+        if args.mode == "ma-cross":
+            return _backtest_ma_cross(args, cfg, provider, start, end)
+        return _backtest_decile(args, cfg, provider, start, end)
+    except Exception as exc:  # CLI boundary: report, don't trace-dump
+        print(f"Backtest failed: {exc}")
+        return 1
+
+
+def _backtest_ma_cross(args, cfg, provider, start, end) -> int:
+    from watchman.backtest import (
+        BacktestEngine,
+        MovingAverageCross,
+        day_windows,
+        format_metrics,
+        walk_forward,
+    )
+    from watchman.data.provider import normalize_bars
+
+    symbol = args.symbol.strip().upper()
+    print(f"Walk-forward MA-cross backtest on {symbol}, {args.years}y, "
+          f"costs {cfg.settings.costs.total_bps_per_side} bps/side "
+          f"+ ${cfg.settings.costs.commission_per_trade}/trade\n")
+    engine = BacktestEngine(
+        provider, cfg.settings.costs, cfg.settings.accounts.day_trading_equity
+    )
+    calendar = normalize_bars(provider.daily_bars(symbol, start, end)).index
+    windows = day_windows(calendar, opt_days=args.opt_days, test_days=args.test_days)
+    if not windows:
+        print(f"Not enough history: {len(calendar)} sessions < "
+              f"opt {args.opt_days} + test {args.test_days}.")
+        return 1
+    grid = [
+        {"fast": f, "slow": s}
+        for f in (10, 20, 50)
+        for s in (50, 100, 200)
+        if f < s
+    ]
+
+    def run_fn(params, w_start, w_end):
+        return engine.run(
+            MovingAverageCross(symbol, **params), [symbol],
+            datetime.combine(w_start.date(), datetime.min.time()),
+            datetime.combine(w_end.date(), datetime.min.time()),
+        )
+
+    wf = walk_forward(run_fn, grid, windows, objective="sharpe")
+
+    print(f"=== OUT-OF-SAMPLE (the number that matters) ===\n{format_metrics(wf.oos_metrics)}")
+    print(f"\nIn-sample avg Sharpe {wf.in_sample_objective_avg:.2f} vs "
+          f"out-of-sample {wf.oos_objective:.2f}")
+    print(f"\n=== Per window ({len(wf.windows)}) ===")
+    for wr in wf.windows:
+        w = wr.window
+        print(f"  opt {w.opt_start.date()}..{w.opt_end.date()} -> "
+              f"params {wr.best_params} | test {w.test_start.date()}..{w.test_end.date()}"
+              f" OOS sharpe {wr.out_of_sample_metrics.get('sharpe', float('nan')):.2f}")
+    for warning in wf.warnings:
+        print(f"\n!! {warning}")
+    return 0
+
+
+def _backtest_decile(args, cfg, provider, start, end) -> int:
+    from watchman.backtest import momentum_decile_backtest
+    from watchman.data.universe import load_universe
+
+    universe = load_universe(cfg.settings.universe)
+    if args.limit:
+        universe = universe.head(args.limit)
+    symbols = list(universe["symbol"])
+    print(f"Momentum-decile backtest of the Module A score | {len(symbols)} symbols, "
+          f"{args.years}y, {args.deciles} deciles, monthly rebalance\n")
+    result = momentum_decile_backtest(
+        provider, symbols, start, end, cfg.settings.costs,
+        n_deciles=args.deciles, progress=print,
+    )
+    print(f"\n=== Decile results (1 = highest momentum; {result.avg_names_per_decile:.0f} "
+          f"names/decile avg; costs {result.costs_bps_per_side} bps/side on turnover) ===")
+    for d in sorted(result.metrics_by_decile):
+        m = result.metrics_by_decile[d]
+        print(f"  D{d:<2} CAGR {m['cagr_pct']:>7.1f}%  sharpe {m['sharpe']:>5.2f}  "
+              f"maxDD {m['max_drawdown_pct']:>6.1f}%")
+    print(f"\nTop-minus-bottom CAGR spread: {result.top_bottom_spread_pct:+.1f}pp")
+    print(f"Adjacent-decile ordering held {result.monotonic_fraction:.0%} of the time.")
+    print("\n=== Read this before believing any of it ===")
+    for warning in result.warnings:
+        print(f"!! {warning}")
+    return 0
 
 
 def _stub(command: str) -> int:
@@ -185,6 +293,26 @@ def build_parser() -> argparse.ArgumentParser:
                           help="Watchlist size (default: settings.yaml watchlist_size)")
     p_screen.add_argument("--limit", type=int, default=None,
                           help="Screen only the first N universe symbols (quick trial run)")
+    p_screen.add_argument("--export-tv", metavar="PATH", default=None,
+                          help="Also write the watchlist as a TradingView-importable file")
+
+    p_backtest = sub.add_parser(
+        "backtest", help="Module C: event-driven backtests with walk-forward validation"
+    )
+    p_backtest.add_argument("mode", choices=["ma-cross", "momentum-decile"],
+                            help="ma-cross: walk-forward demo strategy; "
+                            "momentum-decile: honest Module A score backtest")
+    p_backtest.add_argument("--symbol", default="SPY", help="ma-cross symbol (default SPY)")
+    p_backtest.add_argument("--years", type=float, default=6.0,
+                            help="History length in years (default 6)")
+    p_backtest.add_argument("--opt-days", type=int, default=504,
+                            help="ma-cross: in-sample window in sessions (default 504 ~ 2y)")
+    p_backtest.add_argument("--test-days", type=int, default=126,
+                            help="ma-cross: out-of-sample window in sessions (default 126 ~ 6m)")
+    p_backtest.add_argument("--deciles", type=int, default=10,
+                            help="momentum-decile: number of buckets (default 10)")
+    p_backtest.add_argument("--limit", type=int, default=None,
+                            help="momentum-decile: only the first N universe symbols")
 
     for name in _PHASE_STUBS:
         sub.add_parser(name, help=f"{_PHASE_STUBS[name][0]} (Phase {_PHASE_STUBS[name][1]})")
@@ -201,6 +329,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_fetch(args, cfg)
     if args.command == "screen":
         return cmd_screen(args, cfg)
+    if args.command == "backtest":
+        return cmd_backtest(args, cfg)
     return _stub(args.command)
 
 

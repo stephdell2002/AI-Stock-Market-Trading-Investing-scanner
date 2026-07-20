@@ -178,10 +178,15 @@ class TestScreenCLI:
         with open("config/risk.yaml", encoding="utf-8") as f:
             (cfg_dir / "risk.yaml").write_text(f.read())
 
-        rc = cli.main(["--config-dir", str(cfg_dir), "screen", "--top", "3"])
+        tv_path = tmp_path / "tv_watchlist.txt"
+        rc = cli.main(
+            ["--config-dir", str(cfg_dir), "screen", "--top", "3",
+             "--export-tv", str(tv_path)]
+        )
         out = capsys.readouterr().out
         assert rc == 0
         assert "Watchlist" in out
         assert "GOOD" in out
         assert "Theses" in out
         assert "NOT point-in-time" in out  # the honesty footer is always printed
+        assert tv_path.read_text().splitlines() == ["GOOD", "MED", "BAD"]
