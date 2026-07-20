@@ -19,12 +19,14 @@ def test_universe_lists_symbols(capsys):
     assert "AAPL" in out
 
 
-def test_stub_commands_name_their_phase(capsys):
-    stubs = [("report", 5)]
-    for command, phase in stubs:
-        rc = main(["--config-dir", REPO_CONFIG, command])
-        assert rc == 0
-        assert f"Phase {phase}" in capsys.readouterr().out
+def test_every_command_is_real_no_stubs_left(capsys):
+    """All six phases shipped their commands; --help must list them all."""
+    with pytest.raises(SystemExit):
+        main(["--help"])
+    out = capsys.readouterr().out
+    for command in ("universe", "fetch", "screen", "backtest", "scan",
+                    "signals", "report"):
+        assert command in out
 
 
 def test_unknown_command_exits_nonzero():

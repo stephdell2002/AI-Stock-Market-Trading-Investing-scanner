@@ -47,6 +47,86 @@ CREATE TABLE IF NOT EXISTS focus_lists (
     details     TEXT NOT NULL            -- JSON per-candidate numbers
 );
 
+CREATE TABLE IF NOT EXISTS signal_ledger (
+    signal_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at  TEXT NOT NULL,
+    session     TEXT NOT NULL,           -- trading date the signal belongs to
+    symbol      TEXT NOT NULL,
+    setup       TEXT NOT NULL,
+    direction   TEXT NOT NULL,
+    entry       REAL NOT NULL,
+    stop        REAL NOT NULL,
+    target1     REAL NOT NULL,
+    target2     REAL,
+    risk_reward REAL NOT NULL,
+    shares      INTEGER NOT NULL,
+    freshness   TEXT NOT NULL,
+    rationale   TEXT NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'open',  -- open|target|stopped|expired
+    resolved_at TEXT,
+    exit_price  REAL,
+    pnl         REAL,
+    r_multiple  REAL
+);
+
+CREATE TABLE IF NOT EXISTS setup_baselines (
+    setup       TEXT PRIMARY KEY,        -- backtest baseline for divergence checks
+    win_rate    REAL NOT NULL,
+    sample      INTEGER NOT NULL,
+    source      TEXT NOT NULL,
+    recorded_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS paper_accounts (
+    account     TEXT PRIMARY KEY,        -- 'day' | 'longterm'
+    cash        REAL NOT NULL,
+    created_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS paper_positions (
+    position_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account     TEXT NOT NULL,
+    symbol      TEXT NOT NULL,
+    direction   TEXT NOT NULL DEFAULT 'long',
+    qty         REAL NOT NULL,
+    avg_cost    REAL NOT NULL,           -- all-in fill price
+    opened_at   TEXT NOT NULL,
+    signal_id   INTEGER,                 -- ledger link for day trades
+    stop        REAL,
+    target      REAL,
+    closed_at   TEXT,
+    exit_price  REAL,
+    realized_pnl REAL
+);
+
+CREATE TABLE IF NOT EXISTS paper_fills (
+    fill_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    account     TEXT NOT NULL,
+    ts          TEXT NOT NULL,
+    symbol      TEXT NOT NULL,
+    side        TEXT NOT NULL,           -- buy|sell
+    qty         REAL NOT NULL,
+    price       REAL NOT NULL,           -- all-in after slippage/spread
+    reference   REAL NOT NULL,           -- pre-cost reference price
+    commission  REAL NOT NULL,
+    signal_id   INTEGER,
+    note        TEXT
+);
+
+CREATE TABLE IF NOT EXISTS equity_marks (
+    account     TEXT NOT NULL,
+    ts          TEXT NOT NULL,
+    equity      REAL NOT NULL,
+    cash        REAL NOT NULL,
+    PRIMARY KEY (account, ts)
+);
+
+CREATE TABLE IF NOT EXISTS longterm_rebalances (
+    rebalance_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts           TEXT NOT NULL,
+    holdings     TEXT NOT NULL           -- JSON symbol -> target weight
+);
+
 CREATE TABLE IF NOT EXISTS screener_runs (
     run_id         INTEGER PRIMARY KEY AUTOINCREMENT,
     run_at         TEXT NOT NULL,

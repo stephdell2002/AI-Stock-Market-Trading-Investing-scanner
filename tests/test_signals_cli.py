@@ -118,7 +118,10 @@ class TestScanToSignals:
         assert s.risk_reward == pytest.approx(2.0)
         assert s.shares > 0
         assert "opening range" in s.rationale
-        assert any("circuit breaker" in g for g in result.unenforced_gates)
+        # Phase 5: gates run LIVE against the paper book, nothing unenforced.
+        assert result.unenforced_gates == set()
+        assert result.open_day_positions == 1  # the signal was auto-taken
+        assert result.day_equity is not None
 
     def test_signals_without_scan_demands_one(self, cfg, universe):
         provider = gapper_provider()
@@ -164,4 +167,5 @@ class TestSignalsCLI:
         assert "R:R 2.0" in out
         assert "confidence: n/a (no live signals logged yet)" in out
         assert "delayed data" in out  # the study-don't-chase reminder
-        assert "Gates not yet enforceable" in out
+        assert "Paper day book:" in out
+        assert "Paper trades:" in out

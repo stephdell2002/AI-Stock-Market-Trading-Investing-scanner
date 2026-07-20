@@ -69,7 +69,15 @@ src/watchman/
     thesis.py             plain-English theses citing actual numbers
     store.py              run persistence + deteriorator rules (explicit consts)
     runner.py             orchestration; all data via AsOfView(now)
-  signals|backtest|paper|broker|report/   Phase 3–5 modules (docstring stubs)
+  paper/                  Module D (Phase 5):
+    book.py               PaperBook: slippage-honest fills, cash reconciles
+    ledger.py             SignalLedger: outcomes, 30/90d stats, ConfidenceSource,
+                          baselines + divergence warnings
+    simulate.py           auto_take + resolve (pessimistic same-bar rule)
+    longterm.py           monthly Module A rebalance + watchlist_changes
+  report/                 Module D reporting (Phase 5):
+    html.py               self-contained HTML dashboard (inline SVG curves)
+    briefs.py             dated morning brief / evening recap text files
 tests/                    ALL tests run offline; yfinance is mocked
   screener_fixtures.py    synthetic-company builders (CompanyProvider)
 ```
@@ -142,8 +150,18 @@ tests/                    ALL tests run offline; yfinance is mocked
    premarket baseline); news catalyst is None (shown '?') when the provider
    can't serve news. ConfidenceSource protocol is how the Phase 5 ledger
    plugs rolling live win rates into signals.
-5. Module D paper engine + signal ledger (every signal's outcome logged;
+5. ✅ Module D paper engine + signal ledger (every signal's outcome logged;
    30/90-day live win rates shown everywhere) + self-contained HTML report.
+   Module D notes: run_signals resolves open positions FIRST, then gates run
+   LIVE (breaker vs real day P&L, real open-position count), then finalized
+   signals are auto-taken with slippage; ledger dedup prevents re-entry
+   across runs. Same-bar stop+target resolves as STOPPED (pessimistic) —
+   keep it that way. Realized PnL carries both round-trip commissions so
+   cash always reconciles to start + sum(pnl). Long-term book: monthly
+   equal-weight into screener top-N; existing holdings are NOT resized
+   (documented drift). Divergence warnings need a recorded baseline
+   (setup_baselines) + >=20 resolved signals. Reports are self-contained
+   HTML (inline SVG, no scripts) + dated text briefs.
 6. Polish: README, cron/Task Scheduler instructions, first-90-days checklist.
 
 ## Integration roadmap (stay legitimate)
@@ -181,5 +199,6 @@ watchman screen [--top N] [--limit K] [--export-tv FILE]  # Module A watchlist
 watchman backtest ma-cross [--symbol SPY] [--years 6]     # walk-forward demo
 watchman backtest momentum-decile [--years 6] [--deciles 10] [--limit K]
 watchman scan [--limit K]       # pre-market focus list (run 8:00-9:25 ET)
-watchman signals [--symbols A,B]  # evaluate setups (default: today's focus list)
+watchman signals [--symbols A,B]  # evaluate setups + auto-take paper trades
+watchman report [--brief morning|evening] [--rebalance-longterm [--force]]
 ```

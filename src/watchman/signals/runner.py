@@ -1,6 +1,11 @@
 """Module B orchestration: run_scan (pre-market focus list, persisted for the
 day) and run_signals (evaluate the three setups on the focus list or explicit
-symbols). All market data flows through an AsOfView pinned at 'now'."""
+symbols). All market data flows through an AsOfView pinned at 'now'.
+
+Since Phase 5, run_signals is wired to the Module D paper book: open signals
+are resolved first, the circuit breaker and max-position gates run against
+LIVE paper P&L, confidence comes from the signal ledger, and every emitted
+signal is auto-taken as a paper trade."""
 
 from __future__ import annotations
 
@@ -30,6 +35,12 @@ class SignalsResult:
     unenforced_gates: set[str] = field(default_factory=set)
     failures: dict[str, str] = field(default_factory=dict)
     symbols_evaluated: list[str] = field(default_factory=list)
+    # Module D paper-book state (populated since Phase 5)
+    resolution_notes: list[str] = field(default_factory=list)
+    taken_notes: list[str] = field(default_factory=list)
+    day_equity: float | None = None
+    day_pnl_pct: float | None = None
+    open_day_positions: int | None = None
 
 
 def _now_et(now: datetime | None) -> datetime:
@@ -113,16 +124,43 @@ def run_signals(
             )
     symbols = [s.strip().upper() for s in symbols if s.strip()]
 
+    from watchman.paper import (
+        DAY,
+        PaperBook,
+        SignalLedger,
+        auto_take,
+        last_prices,
+        resolve_open_signals,
+    )
+
     view = AsOfView(CachedProvider(provider, conn), now)
     freshness = provider.quote_freshness()
+    interval = cfg.settings.signals.intraday_interval
+    book = PaperBook(conn, DAY, cfg.settings.costs,
+                     cfg.settings.accounts.day_trading_equity)
+    ledger = SignalLedger(conn)
+
+    # 1) Settle anything already open BEFORE the gates read the book.
+    resolution_notes = resolve_open_signals(book, ledger, view, interval)
+
+    # 2) Live gate state from the paper book (spec gates now enforced).
+    open_positions = book.open_positions()
+    price_symbols = sorted({p.symbol for p in open_positions} | set(symbols))
+    prices = last_prices(view, price_symbols, interval)
+    day_pnl = book.day_pnl_pct(prices, now.date(),
+                               cfg.settings.accounts.day_trading_equity)
     engine = SignalEngine(
         risk=cfg.risk,
         day_equity=cfg.settings.accounts.day_trading_equity,
         freshness=freshness,
+        confidence=ledger,
     )
-    # Module D's paper book will supply live day P&L / open positions; until
-    # then these gates are explicitly reported as unenforced.
-    state = GateState(day_pnl_pct=None, open_day_positions=None, now=now)
+    state = GateState(
+        day_pnl_pct=day_pnl,
+        open_day_positions=len(open_positions),
+        already_emitted=ledger.already_emitted(now.date()),
+        now=now,
+    )
 
     result = SignalsResult(
         now=now,
@@ -132,6 +170,7 @@ def run_signals(
         ),
         actionable=freshness.value == "REALTIME",
         symbols_evaluated=symbols,
+        resolution_notes=resolution_notes,
     )
     for symbol in symbols:
         progress(f"evaluating {symbol}...")
@@ -153,4 +192,14 @@ def run_signals(
             else:
                 result.rejected.append(outcome)
     result.unenforced_gates = engine.unenforced_gates
+
+    # 3) Auto-take emitted signals as paper trades, then mark the book.
+    result.taken_notes = auto_take(book, ledger, result.signals, now)
+    prices = last_prices(view, sorted({p.symbol for p in book.open_positions()}
+                                      | set(prices)), interval)
+    result.day_equity = book.mark(now, prices)
+    result.day_pnl_pct = book.day_pnl_pct(
+        prices, now.date(), cfg.settings.accounts.day_trading_equity
+    )
+    result.open_day_positions = len(book.open_positions())
     return result

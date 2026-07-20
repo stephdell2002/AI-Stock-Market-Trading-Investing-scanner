@@ -1,7 +1,7 @@
-"""Watchman command-line interface.
+"""Watchman command-line interface. All commands live:
 
-Working today (Phase 1): universe, fetch.
-Stubs that name their phase: screen, scan, signals, backtest, report.
+universe/fetch (data), screen (Module A), backtest (Module C),
+scan/signals (Module B, auto-taken as paper trades), report (Module D).
 """
 
 from __future__ import annotations
@@ -17,10 +17,6 @@ from watchman.data.cache import CachedBars
 from watchman.data.universe import load_universe, refresh_snapshots, snapshot_meta
 from watchman.data.yfinance_provider import YFinanceProvider
 from watchman.db import connect
-
-_PHASE_STUBS = {
-    "report": ("Module D daily report", 5),
-}
 
 
 def _make_provider(cfg: WatchmanConfig) -> YFinanceProvider:
@@ -327,8 +323,21 @@ def cmd_signals(args: argparse.Namespace, cfg: WatchmanConfig) -> int:
             print(f"  {r.symbol} {r.setup} {r.direction}: {r.reason}")
     if result.failures:
         print(f"\nNo data: {', '.join(f'{s} ({e})' for s, e in result.failures.items())}")
+    if result.resolution_notes:
+        print("\nResolved since last run:")
+        for note in result.resolution_notes:
+            print(f"  {note}")
+    if result.taken_notes:
+        print("\nPaper trades:")
+        for note in result.taken_notes:
+            print(f"  {note}")
+    if result.day_equity is not None:
+        print(f"\nPaper day book: ${result.day_equity:,.2f} "
+              f"({result.day_pnl_pct:+.2f}% today), "
+              f"{result.open_day_positions}/{cfg.risk.max_concurrent_day_positions} "
+              f"positions, breaker at {cfg.risk.daily_circuit_breaker_pct:+.1f}%")
     if result.unenforced_gates:
-        print("\nGates not yet enforceable (Module D wires them to the paper book):")
+        print("\nGates not enforceable this run:")
         for gate in sorted(result.unenforced_gates):
             print(f"  - {gate}")
     if not result.actionable:
@@ -337,10 +346,44 @@ def cmd_signals(args: argparse.Namespace, cfg: WatchmanConfig) -> int:
     return 0
 
 
-def _stub(command: str) -> int:
-    what, phase = _PHASE_STUBS[command]
-    print(f"`watchman {command}` ({what}) arrives in Phase {phase}. "
-          f"Phase 1 is the skeleton: config, data layer, tests.")
+def cmd_report(args: argparse.Namespace, cfg: WatchmanConfig) -> int:
+    from watchman.data.cache import CachedProvider
+    from watchman.data.provider import ET, AsOfView
+
+    provider = _make_provider(cfg)
+    conn = connect(cfg.settings.data.db_path)
+    now = datetime.now(tz=ET)
+    view = AsOfView(CachedProvider(provider, conn), now)
+    try:
+        if args.rebalance_longterm:
+            from watchman.paper import LONGTERM, PaperBook, rebalance_longterm
+
+            book = PaperBook(conn, LONGTERM, cfg.settings.costs,
+                             cfg.settings.accounts.long_term_equity)
+            notes = rebalance_longterm(
+                book, conn, view, cfg.settings.screener.watchlist_size, now,
+                force=args.force,
+            )
+            print("Long-term rebalance:" if notes else "Long-term rebalance: not due.")
+            for note in notes:
+                print(f"  {note}")
+
+        if args.brief:
+            from watchman.report import write_brief
+
+            path = write_brief(args.brief, cfg, conn, view, now)
+            print(f"{args.brief.capitalize()} brief written to {path}")
+            print()
+            print(path.read_text(encoding="utf-8"))
+        else:
+            from watchman.report import write_report
+
+            path = write_report(cfg, conn, view, now)
+            print(f"Daily HTML report written to {path}")
+            print("Open it in a browser — it is fully self-contained.")
+    except Exception as exc:  # CLI boundary: report, don't trace-dump
+        print(f"Report failed: {exc}")
+        return 1
     return 0
 
 
@@ -409,8 +452,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_signals.add_argument("--symbols", default=None,
                            help="Comma-separated symbols (default: today's focus list)")
 
-    for name in _PHASE_STUBS:
-        sub.add_parser(name, help=f"{_PHASE_STUBS[name][0]} (Phase {_PHASE_STUBS[name][1]})")
+    p_report = sub.add_parser(
+        "report", help="Module D: daily HTML dashboard / morning + evening briefs"
+    )
+    p_report.add_argument("--brief", choices=["morning", "evening"], default=None,
+                          help="Write a dated text brief instead of the HTML dashboard")
+    p_report.add_argument("--rebalance-longterm", action="store_true",
+                          help="Run the monthly Module A paper rebalance first (if due)")
+    p_report.add_argument("--force", action="store_true",
+                          help="With --rebalance-longterm: rebalance even if not due")
 
     return parser
 
@@ -430,7 +480,9 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_scan(args, cfg)
     if args.command == "signals":
         return cmd_signals(args, cfg)
-    return _stub(args.command)
+    if args.command == "report":
+        return cmd_report(args, cfg)
+    raise SystemExit(f"unhandled command {args.command!r}")  # argparse prevents this
 
 
 if __name__ == "__main__":

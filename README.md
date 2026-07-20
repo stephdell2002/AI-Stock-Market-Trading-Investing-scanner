@@ -51,14 +51,19 @@ watchman screen --export-tv tv.txt   # also write a TradingView-importable watch
 watchman backtest ma-cross           # walk-forward demo (SPY, out-of-sample first)
 watchman backtest momentum-decile    # honest decile backtest of the Module A score
 watchman scan                # pre-market scanner -> today's focus list (8:00-9:25 ET)
-watchman signals             # ORB / VWAP / rel-vol setups on the focus list
+watchman signals             # setups on the focus list; auto-taken as paper trades
+watchman report              # self-contained HTML dashboard (data/reports/)
+watchman report --brief morning   # dated text brief (also: evening)
+watchman report --rebalance-longterm  # monthly Module A paper rebalance (if due)
 pytest                       # the whole suite runs offline
 ```
 
-`watchman report` arrives in Phase 5 and currently says so instead of
-pretending. On free yfinance data every scan result and signal is labeled
+On free yfinance data every scan result and signal is labeled
 `DELAYED — NOT ACTIONABLE` — study them, don't chase them; add a real-time
-provider key (`.env`) to lift the label.
+provider key (`.env`) to lift the label. Every signal is logged in the
+ledger with its eventual outcome (target / stopped / expired, pessimistic
+same-bar rule), and each setup's rolling 30/90-day LIVE win rate feeds back
+into new signals' confidence — the system grades its own homework.
 
 ## Connecting other platforms (the legitimate paths)
 
@@ -83,7 +88,7 @@ provider key (`.env`) to lift the label.
 | 2 | Module A screener + ranked watchlist | ✅ done |
 | 3 | Module C backtester + honest Module A backtest | ✅ done |
 | 4 | Module B scanner + three intraday setups | ✅ done |
-| 5 | Module D paper engine, signal ledger, HTML report | pending sign-off |
-| 6 | Polish, scheduling, first-90-days checklist | — |
+| 5 | Module D paper engine, signal ledger, HTML report | ✅ done |
+| 6 | Polish, scheduling, first-90-days checklist | pending sign-off |
 
 Architecture and conventions live in [CLAUDE.md](CLAUDE.md).
