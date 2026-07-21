@@ -20,6 +20,21 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 class DataConfig(BaseModel):
     provider: str = "yfinance"
     db_path: Path = Path("data/watchman.db")
+    #: Freshness the active real-time provider (finnhub/polygon/fmp) may claim.
+    #: None -> the provider's safe default (DELAYED). Set REALTIME only if your
+    #: subscription genuinely delivers real-time data for your symbols; the
+    #: label flows straight onto every signal. yfinance ignores this (it's EOD).
+    freshness: str | None = None
+
+    @field_validator("freshness")
+    @classmethod
+    def _valid_freshness(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        allowed = {"REALTIME", "DELAYED", "EOD"}
+        if v.strip().upper() not in allowed:
+            raise ValueError(f"data.freshness must be one of {sorted(allowed)} or unset")
+        return v.strip().upper()
 
 
 class UniverseConfig(BaseModel):

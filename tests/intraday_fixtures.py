@@ -66,10 +66,12 @@ class IntradayProvider(DataProvider):
 
     name = "intraday-synthetic"
 
-    def __init__(self, companies: dict[str, dict]):
+    def __init__(self, companies: dict[str, dict], freshness: Freshness = Freshness.DELAYED):
         """companies: symbol -> dict with optional keys
-        daily, intraday (regular), premarket (concat'd), fundamentals, news."""
+        daily, intraday (regular), premarket (concat'd), fundamentals, news.
+        freshness lets a test simulate a real-time feed (Freshness.REALTIME)."""
         self.companies = companies
+        self._freshness = freshness
 
     def daily_bars(self, symbol, start, end):
         df = self.companies[symbol]["daily"]
@@ -100,4 +102,4 @@ class IntradayProvider(DataProvider):
         return items
 
     def quote_freshness(self) -> Freshness:
-        return Freshness.DELAYED
+        return self._freshness

@@ -14,19 +14,18 @@ from pathlib import Path
 from watchman import __version__
 from watchman.config import WatchmanConfig, load_config
 from watchman.data.cache import CachedBars
+from watchman.data.provider import DataProvider
+from watchman.data.providers import ProviderConfigError, make_provider
 from watchman.data.universe import load_universe, refresh_snapshots, snapshot_meta
-from watchman.data.yfinance_provider import YFinanceProvider
 from watchman.db import connect
 
 
-def _make_provider(cfg: WatchmanConfig) -> YFinanceProvider:
-    provider_name = cfg.settings.data.provider
-    if provider_name != "yfinance":
-        raise SystemExit(
-            f"Provider {provider_name!r} is not implemented yet. "
-            f"Available: yfinance. (Polygon/Finnhub/FMP slots arrive with Module B.)"
-        )
-    return YFinanceProvider()
+def _make_provider(cfg: WatchmanConfig) -> DataProvider:
+    try:
+        return make_provider(cfg)
+    except ProviderConfigError as exc:
+        # Clean exit (no traceback) for a config/key problem the user must fix.
+        raise SystemExit(str(exc)) from exc
 
 
 def cmd_universe(args: argparse.Namespace, cfg: WatchmanConfig) -> int:

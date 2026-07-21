@@ -36,9 +36,15 @@ config/settings.yaml      tunables: universe, weights, costs, accounts, provider
 config/risk.yaml          hard limits (loosening one deserves a written why)
 src/watchman/
   config/models.py        pydantic v2 models; load_config(config_dir)
-  data/provider.py        DataProvider ABC, Freshness, Fundamentals, AsOfView,
-                          LookaheadError, normalize_bars — the honesty core
+  data/provider.py        DataProvider ABC, Freshness, Fundamentals, NewsItem,
+                          AsOfView, LookaheadError, normalize_* — the honesty core
   data/yfinance_provider.py  EOD bars + latest-snapshot fundamentals
+  data/http.py            stdlib JSON-over-HTTPS helper (retries, proxy-aware)
+  data/rest_common.py     shared REST bits: freshness, session filter, intervals
+  data/finnhub_provider.py / polygon_provider.py / fmp_provider.py
+                          real-time REST providers (bars/news/fundamentals)
+  data/providers.py       make_provider factory + FundamentalsFallbackProvider
+                          (bars-only source + yfinance fundamentals)
   data/cache.py           CachedBars: SQLite bar cache with coverage tracking
   data/universe.py        index membership from bundled snapshots + refresh
   data/snapshots/         sp500.csv, nasdaq100.csv, meta.yaml (provenance)
@@ -181,9 +187,14 @@ BROKER_REGISTRY in broker/adapter.py — that registry is the single source of
 truth, keep it accurate:
 
 - **Yahoo Finance**: connected today via yfinance (free, EOD; quotes delayed).
-- **Real-time data**: Polygon/Finnhub/FMP env-key slots; Module B (Phase 4)
-  consumes whatever is configured and labels anything non-realtime
-  `DELAYED — NOT ACTIONABLE`.
+- **Real-time data**: IMPLEMENTED for Polygon/Finnhub/FMP (data/*_provider.py,
+  selected via settings.data.provider, keys from env). make_provider composes a
+  bars-only source (Polygon) with yfinance fundamentals via
+  FundamentalsFallbackProvider. Freshness is settings.data.freshness (default
+  DELAYED — the safe under-claim); set REALTIME only when the plan truly
+  delivers it, since the label flows straight onto every signal. Adding a
+  provider = a DataProvider subclass + a factory branch + a mocked-HTTP test;
+  never touch the AsOfView honesty core. See docs/realtime-data.md.
 - **TradingView**: no public consumption API. Legitimate paths only:
   `watchman screen --export-tv FILE` writes an importable watchlist; later,
   inbound TradingView alert webhooks (their official feature) can feed the

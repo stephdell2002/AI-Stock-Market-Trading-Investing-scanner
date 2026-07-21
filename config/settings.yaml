@@ -3,9 +3,18 @@
 # API keys are NEVER put in this file — they come from env vars (see .env.example).
 
 data:
-  # Active market-data provider. yfinance = free, end-of-day. When a real-time
-  # provider is configured later, Module B signals stop being labeled DELAYED.
+  # Active market-data provider:
+  #   yfinance  free, end-of-day (default). Signals stay DELAYED — NOT ACTIONABLE.
+  #   finnhub   real-time quotes + news (free); intraday candles need a paid key.
+  #   polygon   clean intraday bars; free tier delayed, paid tiers real-time.
+  #   fmp       bars + deep fundamentals + statements; drives everything alone.
+  # The finnhub/polygon/fmp keys come from env vars only (see .env.example).
   provider: yfinance
+  # Freshness the real-time provider may claim: REALTIME | DELAYED | EOD, or
+  # unset for the safe default (DELAYED). Set REALTIME *only* if your data
+  # subscription genuinely delivers it — the label flows onto every signal.
+  # yfinance ignores this (it is always EOD).
+  # freshness: REALTIME
   # SQLite file for the price cache, signal ledger, and paper portfolios.
   db_path: data/watchman.db
 

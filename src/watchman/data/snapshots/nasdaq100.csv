@@ -1,0 +1,102 @@
+symbol,name,sector
+AAPL,Apple,Information Technology
+ABNB,Airbnb,Consumer Discretionary
+ADBE,Adobe,Information Technology
+ADI,Analog Devices,Information Technology
+ADP,Automatic Data Processing,Industrials
+ADSK,Autodesk,Information Technology
+AEP,American Electric Power,Utilities
+AMAT,Applied Materials,Information Technology
+AMD,Advanced Micro Devices,Information Technology
+AMGN,Amgen,Health Care
+AMZN,Amazon,Consumer Discretionary
+APP,AppLovin,Information Technology
+ARM,Arm Holdings,Information Technology
+ASML,ASML Holding,Information Technology
+AVGO,Broadcom,Information Technology
+AXON,Axon Enterprise,Industrials
+AZN,AstraZeneca,Health Care
+BIIB,Biogen,Health Care
+BKNG,Booking Holdings,Consumer Discretionary
+BKR,Baker Hughes,Energy
+CCEP,Coca-Cola Europacific Partners,Consumer Staples
+CDNS,Cadence Design Systems,Information Technology
+CDW,CDW,Information Technology
+CEG,Constellation Energy,Utilities
+CHTR,Charter Communications,Communication Services
+CMCSA,Comcast,Communication Services
+COST,Costco Wholesale,Consumer Staples
+CPRT,Copart,Industrials
+CRWD,CrowdStrike,Information Technology
+CSCO,Cisco Systems,Information Technology
+CSGP,CoStar Group,Real Estate
+CSX,CSX,Industrials
+CTAS,Cintas,Industrials
+CTSH,Cognizant,Information Technology
+DASH,DoorDash,Consumer Discretionary
+DDOG,Datadog,Information Technology
+DXCM,Dexcom,Health Care
+EA,Electronic Arts,Communication Services
+EXC,Exelon,Utilities
+FANG,Diamondback Energy,Energy
+FAST,Fastenal,Industrials
+FTNT,Fortinet,Information Technology
+GEHC,GE HealthCare,Health Care
+GFS,GlobalFoundries,Information Technology
+GILD,Gilead Sciences,Health Care
+GOOG,Alphabet Class C,Communication Services
+GOOGL,Alphabet Class A,Communication Services
+HON,Honeywell International,Industrials
+IDXX,IDEXX Laboratories,Health Care
+ILMN,Illumina,Health Care
+INTC,Intel,Information Technology
+INTU,Intuit,Information Technology
+ISRG,Intuitive Surgical,Health Care
+KDP,Keurig Dr Pepper,Consumer Staples
+KHC,Kraft Heinz,Consumer Staples
+KLAC,KLA,Information Technology
+LIN,Linde,Materials
+LRCX,Lam Research,Information Technology
+LULU,Lululemon Athletica,Consumer Discretionary
+MAR,Marriott International,Consumer Discretionary
+MCHP,Microchip Technology,Information Technology
+MDLZ,Mondelez International,Consumer Staples
+MELI,MercadoLibre,Consumer Discretionary
+META,Meta Platforms,Communication Services
+MNST,Monster Beverage,Consumer Staples
+MRVL,Marvell Technology,Information Technology
+MSFT,Microsoft,Information Technology
+MSTR,Strategy,Information Technology
+MU,Micron Technology,Information Technology
+NFLX,Netflix,Communication Services
+NVDA,NVIDIA,Information Technology
+NXPI,NXP Semiconductors,Information Technology
+ODFL,Old Dominion Freight Line,Industrials
+ON,ON Semiconductor,Information Technology
+ORLY,OReilly Automotive,Consumer Discretionary
+PANW,Palo Alto Networks,Information Technology
+PAYX,Paychex,Industrials
+PCAR,PACCAR,Industrials
+PDD,PDD Holdings,Consumer Discretionary
+PEP,PepsiCo,Consumer Staples
+PLTR,Palantir Technologies,Information Technology
+PYPL,PayPal,Financials
+QCOM,Qualcomm,Information Technology
+REGN,Regeneron Pharmaceuticals,Health Care
+ROP,Roper Technologies,Information Technology
+ROST,Ross Stores,Consumer Discretionary
+SBUX,Starbucks,Consumer Discretionary
+SNPS,Synopsys,Information Technology
+TEAM,Atlassian,Information Technology
+TMUS,T-Mobile US,Communication Services
+TSLA,Tesla,Consumer Discretionary
+TTD,Trade Desk,Communication Services
+TTWO,Take-Two Interactive,Communication Services
+TXN,Texas Instruments,Information Technology
+VRSK,Verisk Analytics,Industrials
+VRSN,VeriSign,Information Technology
+VRTX,Vertex Pharmaceuticals,Health Care
+WBD,Warner Bros Discovery,Communication Services
+WDAY,Workday,Information Technology
+XEL,Xcel Energy,Utilities
+ZS,Zscaler,Information Technology

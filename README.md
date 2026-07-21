@@ -45,8 +45,10 @@ pytest                       # the whole suite runs offline
 ```
 
 Copy `.env.example` to `.env` if you have a real-time data key (Polygon /
-Finnhub / FMP). Without one, Watchman runs on free yfinance EOD data and labels
-every intraday signal `DELAYED — NOT ACTIONABLE`.
+Finnhub / FMP) and set `data.provider` in `config/settings.yaml`. Without one,
+Watchman runs on free yfinance EOD data and labels every intraday signal
+`DELAYED — NOT ACTIONABLE`. See **[docs/realtime-data.md](docs/realtime-data.md)**
+for wiring up a live feed and the (deliberately your-call) freshness setting.
 
 ## The daily rhythm
 
@@ -107,8 +109,11 @@ at a different `config/` directory.
 ## Connecting other platforms (the legitimate paths)
 
 - **Yahoo Finance** — already the default data source (free, end-of-day).
-- **Real-time data** — add a Polygon/Finnhub/FMP key in `.env`; Module B will
-  use it and stop labeling signals `DELAYED — NOT ACTIONABLE`.
+- **Real-time data** — implemented for **Polygon, Finnhub, and FMP**. Add a key
+  in `.env`, set `data.provider`, and Module B reads live bars/news; set
+  `data.freshness: REALTIME` (when your plan warrants it) to drop the
+  `DELAYED — NOT ACTIONABLE` label. Full guide:
+  [docs/realtime-data.md](docs/realtime-data.md).
 - **TradingView** — has no public data API, so Watchman never scrapes it.
   Instead: `watchman screen --export-tv` writes a watchlist file you import
   into TradingView; TradingView alert webhooks (official feature) can feed
@@ -127,7 +132,8 @@ config/         settings.yaml (tunables) + risk.yaml (hard limits)
 src/watchman/
   config/       pydantic models; keys from env vars only
   data/         DataProvider + AsOfView (the point-in-time honesty core),
-                yfinance provider, SQLite caches, universe snapshots
+                yfinance + Polygon/Finnhub/FMP providers, factory, SQLite
+                caches, universe snapshots
   screener/     Module A: four-pillar composite, theses, deteriorators
   backtest/     Module C: event-driven engine, walk-forward, honest decile
   signals/      Module B: scanner, ORB/VWAP/rel-vol setups, gate engine

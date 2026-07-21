@@ -1,0 +1,9 @@
+as_of: 2026-01 (approximate)
+source: >-
+  Bundled best-effort snapshot written from model knowledge because the build
+  sandbox had no access to public data sources. Expect a handful of stale or
+  missing names around recent index rebalances.
+refresh: >-
+  Run `watchman universe --refresh` on a machine with internet access to rebuild
+  both CSVs from Wikipedia's public constituent lists and update this file.
+note: Symbols are yfinance-style (dashes for share classes, e.g. BRK-B).

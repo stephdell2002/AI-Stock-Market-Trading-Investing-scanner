@@ -1,8 +1,9 @@
 # Environment / secrets — API keys live in env vars only, never in the repo
 .env
 
-# Runtime artifacts
-data/
+# Runtime artifacts — the repo-root data/ dir ONLY (anchored with a leading
+# slash so it never matches the source package src/watchman/data/).
+/data/
 *.db
 *.sqlite3
 

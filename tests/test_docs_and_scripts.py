@@ -41,6 +41,7 @@ class TestFilesExist:
             "scripts/crontab.example",
             "docs/scheduling.md",
             "docs/first-90-days.md",
+            "docs/realtime-data.md",
         ],
     )
     def test_present_and_nonempty(self, rel):
