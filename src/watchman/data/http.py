@@ -45,7 +45,7 @@ def get_json(
     last_error: Exception | None = None
     for attempt in range(retries + 1):
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
+            with urllib.request.urlopen(request, timeout=timeout) as response:
                 raw = response.read().decode("utf-8")
             return json.loads(raw) if raw else None
         except urllib.error.HTTPError as exc:

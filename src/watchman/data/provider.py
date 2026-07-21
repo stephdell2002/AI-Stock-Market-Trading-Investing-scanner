@@ -22,7 +22,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -52,7 +52,7 @@ class LookaheadError(RuntimeError):
     """Raised when code asks for data that did not exist at the pinned time."""
 
 
-class Freshness(str, Enum):
+class Freshness(StrEnum):
     """How current a provider's 'now' data is. Signals inherit this label:
     anything not REALTIME is stamped DELAYED — NOT ACTIONABLE by Module B."""
 
@@ -249,7 +249,11 @@ class AsOfView:
         request is clipped, mirroring what a live query would have returned.
         """
         cutoff = self.last_complete_session()
-        start_ts = pd.Timestamp(2000, 1, 1) if start is None else pd.Timestamp(as_eastern(start).date())
+        start_ts = (
+            pd.Timestamp(2000, 1, 1)
+            if start is None
+            else pd.Timestamp(as_eastern(start).date())
+        )
         end_ts = cutoff if end is None else min(pd.Timestamp(as_eastern(end).date()), cutoff)
         if end_ts < start_ts:
             return pd.DataFrame(columns=BAR_COLUMNS, index=pd.DatetimeIndex([], name="date"))

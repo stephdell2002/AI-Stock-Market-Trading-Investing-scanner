@@ -10,7 +10,7 @@ Honesty notes baked into this implementation:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pandas as pd
 
@@ -50,7 +50,8 @@ class YFinanceProvider(DataProvider):
                 f"yfinance returned no daily bars for {symbol!r} "
                 f"({start.date()}..{end.date()}) — bad symbol, delisted, or network issue"
             )
-        return normalize_bars(raw[[c for c in raw.columns if c not in ("Dividends", "Stock Splits")]])
+        keep = [c for c in raw.columns if c not in ("Dividends", "Stock Splits")]
+        return normalize_bars(raw[keep])
 
     def fundamentals(self, symbol: str) -> Fundamentals:
         ticker = self._yf.Ticker(symbol)
@@ -155,7 +156,7 @@ class YFinanceProvider(DataProvider):
                 except ValueError:
                     published = None
             elif isinstance(epoch, (int, float)):
-                published = datetime.fromtimestamp(float(epoch), tz=timezone.utc)
+                published = datetime.fromtimestamp(float(epoch), tz=UTC)
             if title and published is not None and published.tzinfo is not None:
                 source = ""
                 provider_field = content.get("provider")

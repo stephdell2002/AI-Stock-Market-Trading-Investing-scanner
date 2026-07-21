@@ -11,7 +11,7 @@ factory composes Polygon bars with yfinance fundamentals for the screener.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pandas as pd
 
@@ -81,7 +81,7 @@ class PolygonProvider(DataProvider):
     ) -> pd.DataFrame:
         check_interval(interval)
         mult, span = _TIMESPAN[interval]
-        end = datetime.now(tz=timezone.utc).date()
+        end = datetime.now(tz=UTC).date()
         start = end - timedelta(days=max(days, 1) + 3)
         frame = self._aggs(symbol, mult, span, start.isoformat(), end.isoformat())
         bars = normalize_intraday_bars(frame)

@@ -10,6 +10,7 @@ and avoids hammering the free API on every run.
 
 from __future__ import annotations
 
+import contextlib
 import sqlite3
 from datetime import date, datetime, time, timedelta
 from io import StringIO
@@ -118,10 +119,9 @@ def _df_to_json(df: pd.DataFrame) -> str:
 def _df_from_json(text: str) -> pd.DataFrame:
     df = pd.read_json(StringIO(text), orient="split")
     if len(df.columns):
-        try:
+        # Statement columns are fiscal-period dates; non-date columns stay as-is.
+        with contextlib.suppress(ValueError, TypeError):
             df.columns = pd.to_datetime(df.columns)
-        except (ValueError, TypeError):
-            pass  # non-date columns stay as-is
     return df
 
 

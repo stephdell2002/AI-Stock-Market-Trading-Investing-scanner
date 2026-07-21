@@ -11,7 +11,7 @@ REALTIME only if their subscription genuinely delivers it.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pandas as pd
 
@@ -51,8 +51,8 @@ class FinnhubProvider(DataProvider):
             {
                 "symbol": symbol.strip().upper(),
                 "resolution": resolution,
-                "from": int(start.replace(tzinfo=timezone.utc).timestamp()),
-                "to": int(end.replace(tzinfo=timezone.utc).timestamp()),
+                "from": int(start.replace(tzinfo=UTC).timestamp()),
+                "to": int(end.replace(tzinfo=UTC).timestamp()),
                 "token": self._key,
             },
         )
@@ -78,7 +78,7 @@ class FinnhubProvider(DataProvider):
         include_premarket: bool = False,
     ) -> pd.DataFrame:
         check_interval(interval)
-        end = datetime.now(tz=timezone.utc)
+        end = datetime.now(tz=UTC)
         start = end - timedelta(days=max(days, 1) + 1)
         data = self._candles(symbol, _RESOLUTION[interval], start, end)
         frame = pd.DataFrame(
@@ -130,7 +130,7 @@ class FinnhubProvider(DataProvider):
         )
 
     def news(self, symbol: str) -> list[NewsItem]:
-        today = datetime.now(tz=timezone.utc).date()
+        today = datetime.now(tz=UTC).date()
         try:
             items = get_json(
                 f"{BASE}/company-news",
@@ -152,7 +152,7 @@ class FinnhubProvider(DataProvider):
                 NewsItem(
                     symbol=symbol.strip().upper(),
                     title=str(item.get("headline", "")),
-                    published_at=datetime.fromtimestamp(float(ts), tz=timezone.utc),
+                    published_at=datetime.fromtimestamp(float(ts), tz=UTC),
                     source=str(item.get("source", "")),
                 )
             )

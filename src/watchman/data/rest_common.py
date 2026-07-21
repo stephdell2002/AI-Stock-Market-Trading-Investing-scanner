@@ -39,7 +39,7 @@ def check_interval(interval: str) -> None:
 
 
 def regular_session_only(bars: pd.DataFrame) -> pd.DataFrame:
-    """Keep only bars whose START time is within the 09:30–16:00 ET regular
+    """Keep only bars whose START time is within the 09:30-16:00 ET regular
     session. Used when include_premarket is False so extended-hours bars from
     providers that return them don't leak into the setups."""
     if bars.empty:
