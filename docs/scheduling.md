@@ -18,6 +18,7 @@ babysitting a terminal.
 | `intraday` | every 5 min, 09:35–15:55 | `signals` | Evaluate ORB / VWAP / rel-vol setups on each completed bar; auto-take paper trades; resolve open ones. |
 | `evening` | ~16:15, weekdays | `signals`, `report --brief evening`, `report` | Final resolve/expire; write the recap and the HTML dashboard. |
 | `weekly` | Sun evening | `screen` | Refresh the Module A watchlist and deteriorator flags. |
+| `debuts` | weekday pre-open (optional) | `debuts` | New/upcoming listings + data-driven verdicts. **Needs a Finnhub or FMP key**; on yfinance the step just fails and is tallied. |
 | `monthly` | 1st of month | `report --rebalance-longterm` | Equal-weight the long-term paper book into the screener top-N. |
 
 The intraday cadence matches the bar interval (5 min by default). A setup only

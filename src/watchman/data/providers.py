@@ -71,6 +71,11 @@ class FundamentalsFallbackProvider(DataProvider):
         except NotImplementedError:
             return self._fb().news(symbol)
 
+    def ipo_calendar(self, start, end):
+        # Only the primary (Finnhub/FMP) has an IPO calendar; yfinance has none,
+        # so there is nothing to fall back to — let NotImplementedError surface.
+        return self.primary.ipo_calendar(start, end)
+
     def fundamentals(self, symbol: str) -> Fundamentals:
         try:
             return self.primary.fundamentals(symbol)

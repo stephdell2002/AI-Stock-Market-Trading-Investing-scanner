@@ -23,7 +23,7 @@ CLI_COMMANDS = set(
     build_parser()._subparsers._group_actions[0].choices  # type: ignore[attr-defined]
 )
 # The phases the runner scripts dispatch on.
-PHASES = {"morning", "intraday", "evening", "weekly", "monthly"}
+PHASES = {"morning", "intraday", "evening", "weekly", "debuts", "monthly"}
 
 
 class TestVersion:
@@ -42,6 +42,7 @@ class TestFilesExist:
             "docs/scheduling.md",
             "docs/first-90-days.md",
             "docs/realtime-data.md",
+            "docs/debuts.md",
         ],
     )
     def test_present_and_nonempty(self, rel):
@@ -102,6 +103,14 @@ class TestDocsMatchCli:
         assert "divergence" in text
         assert "sample size" in text
         assert "paper only" in text or "paper-only" in text
+
+    def test_debuts_doc_keeps_its_honesty_spine(self):
+        text = (DOCS / "debuts.md").read_text().lower()
+        # Module F's whole point is honesty about a thin-data case.
+        assert "not investment advice" in text or "not advice" in text
+        assert "underperform" in text          # documented IPO reality
+        assert "base rate" in text
+        assert "skeptical" in text             # the verdict never just says BUY
 
     def test_readme_marks_all_phases_done(self):
         text = (REPO / "README.md").read_text()

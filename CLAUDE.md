@@ -69,6 +69,11 @@ src/watchman/
     strategies.py         BuyAndHold + MACross demo strategies
   broker/adapter.py       Module E contract: READ-ONLY ABC (no order methods,
                           by design) + BROKER_REGISTRY official-API gate
+  debuts/                 Module F (new-listing scanner):
+    comparables.py        size buckets, post-IPO performance, cohort builder
+    analysis.py           deterministic verdict scorecard (pure; documented
+                          constants; skeptical prior — never says BUY)
+    runner.py             run_debuts: calendar -> cohorts -> verdicts, persisted
   screener/               Module A (Phase 2):
     metrics.py            pure metric extraction; None = honestly unknown
     scoring.py            sector-relative valuation, percentile ranks, composite
@@ -124,6 +129,17 @@ docs/                     scheduling.md, first-90-days.md
 - **Freshness labels**: `Freshness.EOD/DELAYED/REALTIME` flows from provider
   to signal. Module B must stamp anything non-realtime
   `DELAYED — NOT ACTIONABLE`, not pretend.
+- **IPOs are the thinnest-data case (Module F, debuts/).** A brand-new ticker
+  has ~one filing and no track record — the AsOfView/backtest/ledger discipline
+  barely applies. The debut verdict must therefore stay a DETERMINISTIC
+  scorecard over the comparable-cohort base rate + the listing's own numbers
+  (analysis.py, pure function), never a model narrative. It encodes documented
+  IPO regularities as explicit constants (skeptical prior; post-pop penalty;
+  unprofitable penalty), always shows cohort sample size + match basis, caps at
+  CAUTION when data is absent, and NEVER emits "BUY". The IPO calendar
+  (Finnhub/FMP `ipo_calendar`) is a live-only facility — AsOfView passes it
+  through unclipped (upcoming listings are legitimately known in advance) and
+  the runner always pins at now. Keep the standing cautions load-bearing.
 
 ## Build phases (pause for user sign-off after each)
 
@@ -222,4 +238,5 @@ watchman backtest momentum-decile [--years 6] [--deciles 10] [--limit K]
 watchman scan [--limit K]       # pre-market focus list (run 8:00-9:25 ET)
 watchman signals [--symbols A,B]  # evaluate setups + auto-take paper trades
 watchman report [--brief morning|evening] [--rebalance-longterm [--force]]
+watchman debuts [--why] [--lookback D] [--horizon D]  # Module F new listings
 ```

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pandas as pd
 
 from watchman.data.provider import (
@@ -36,6 +38,26 @@ def check_interval(interval: str) -> None:
         raise ValueError(
             f"unsupported interval {interval!r}; use one of {sorted(INTRADAY_INTERVALS)}"
         )
+
+
+def parse_price_range(value) -> tuple[float | None, float | None]:
+    """Parse an IPO price field into (low, high).
+
+    Handles a single number, a numeric value, or strings like '20.00-24.00',
+    '$20.00 - $24.00', '20'. Returns (None, None) when nothing parses; a single
+    price yields (price, price)."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        v = float(value)
+        return (v, v) if v > 0 else (None, None)
+    if not isinstance(value, str):
+        return (None, None)
+    nums = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", value)]
+    nums = [n for n in nums if n > 0]
+    if not nums:
+        return (None, None)
+    if len(nums) == 1:
+        return (nums[0], nums[0])
+    return (min(nums), max(nums))
 
 
 def regular_session_only(bars: pd.DataFrame) -> pd.DataFrame:

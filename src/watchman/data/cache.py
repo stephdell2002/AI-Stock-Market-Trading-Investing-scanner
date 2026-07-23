@@ -254,5 +254,9 @@ class CachedProvider(DataProvider):
     def news(self, symbol: str):
         return self.inner.news(symbol)
 
+    def ipo_calendar(self, start, end):
+        # Calendar is small and time-sensitive: pass through, don't cache.
+        return self.inner.ipo_calendar(start, end)
+
     def quote_freshness(self) -> Freshness:
         return self.inner.quote_freshness()

@@ -116,6 +116,14 @@ class SignalsConfig(BaseModel):
         return self
 
 
+class DebutsConfig(BaseModel):
+    """Module F (new-listing scanner) tunables."""
+
+    lookback_days: int = Field(30, ge=1, le=365)   # how far back a "recent" debut is
+    horizon_days: int = Field(30, ge=0, le=180)    # how far ahead to show upcoming IPOs
+    max_cohort_fetch: int = Field(40, ge=5, le=200)  # cap on comparable API pulls
+
+
 class ReportConfig(BaseModel):
     output_dir: Path = Path("data/reports")
 
@@ -127,6 +135,7 @@ class Settings(BaseModel):
     costs: CostsConfig = Field(default_factory=CostsConfig)
     screener: ScreenerConfig = Field(default_factory=ScreenerConfig)
     signals: SignalsConfig = Field(default_factory=SignalsConfig)
+    debuts: DebutsConfig = Field(default_factory=DebutsConfig)
     report: ReportConfig = Field(default_factory=ReportConfig)
 
 

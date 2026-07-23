@@ -345,6 +345,62 @@ def cmd_signals(args: argparse.Namespace, cfg: WatchmanConfig) -> int:
     return 0
 
 
+_VERDICT_MARK = {
+    "AVOID": "✗ AVOID", "CAUTION": "! CAUTION",
+    "NEUTRAL": "~ NEUTRAL", "LEAN_FAVORABLE": "+ LEAN FAVORABLE",
+}
+
+
+def cmd_debuts(args: argparse.Namespace, cfg: WatchmanConfig) -> int:
+    from watchman.debuts import run_debuts
+
+    provider = _make_provider(cfg)
+    conn = connect(cfg.settings.data.db_path)
+    print(f"Watchman debuts | {_freshness_banner(provider)}")
+    print("Data-driven base rates only — NOT investment advice. IPOs underperform "
+          "the market on average; a new ticker has almost no history.\n")
+    try:
+        result = run_debuts(
+            cfg, provider, conn, lookback_days=args.lookback,
+            horizon_days=args.horizon, limit=args.limit, progress=print,
+        )
+    except Exception as exc:  # CLI boundary: report, don't trace-dump
+        print(f"Debuts scan failed: {exc}")
+        return 1
+
+    upcoming = [a for a in result.analyses if not a.is_trading]
+    trading = [a for a in result.analyses if a.is_trading]
+    print(f"\n=== New listings {result.window[0]}..{result.window[1]} "
+          f"({len(result.analyses)} found; cohort pool {result.reference_pool_size}) ===")
+    if result.new_since_last:
+        print(f"NEW since last scan: {', '.join(result.new_since_last)}")
+
+    for section, group in (("Trading now", trading), ("Upcoming", upcoming)):
+        if not group:
+            continue
+        print(f"\n--- {section} ---")
+        for a in group:
+            mark = _VERDICT_MARK.get(a.verdict.label, a.verdict.label)
+            price = f"${a.current_price:.2f}" if a.current_price else "—"
+            vs = f"{a.vs_offer_pct:+.0f}% vs offer" if a.vs_offer_pct is not None else ""
+            print(f"\n{a.event.symbol}  {a.event.name}  [{a.event.ipo_date}]  "
+                  f"{a.event.status}  {price} {vs}")
+            print(f"  VERDICT: {mark}  (data score {a.verdict.score:+.1f})")
+            for reason in a.verdict.reasons:
+                print(f"    • {reason}")
+            if args.why:
+                for caution in a.verdict.cautions:
+                    print(f"    ! {caution}")
+
+    if not args.why:
+        print("\n(Run with --why to print the full standing caveats for each name.)")
+    print("\nEvery verdict above is a deterministic function of the numbers shown — "
+          "there is no opinion in it, and it is not advice.")
+    if result.failures:
+        print(f"Data gaps: {', '.join(f'{s} ({e})' for s, e in result.failures.items())}")
+    return 0
+
+
 def cmd_report(args: argparse.Namespace, cfg: WatchmanConfig) -> int:
     from watchman.data.cache import CachedProvider
     from watchman.data.provider import ET, AsOfView
@@ -461,6 +517,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_report.add_argument("--force", action="store_true",
                           help="With --rebalance-longterm: rebalance even if not due")
 
+    p_debuts = sub.add_parser(
+        "debuts", help="Module F: new/upcoming listings + data-driven verdict "
+        "(needs a Finnhub or FMP key)"
+    )
+    p_debuts.add_argument("--lookback", type=int, default=None,
+                          help="Days back a listing still counts as recent")
+    p_debuts.add_argument("--horizon", type=int, default=None,
+                          help="Days ahead to include upcoming IPOs")
+    p_debuts.add_argument("--limit", type=int, default=None,
+                          help="Analyze at most N listings")
+    p_debuts.add_argument("--why", action="store_true",
+                          help="Print the full standing caveats for each name")
+
     return parser
 
 
@@ -481,6 +550,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_signals(args, cfg)
     if args.command == "report":
         return cmd_report(args, cfg)
+    if args.command == "debuts":
+        return cmd_debuts(args, cfg)
     raise SystemExit(f"unhandled command {args.command!r}")  # argparse prevents this
 
 

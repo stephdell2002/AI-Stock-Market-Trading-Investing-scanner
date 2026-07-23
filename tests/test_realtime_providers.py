@@ -8,7 +8,7 @@ and timestamp-clippable news. No test here touches the network.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 
@@ -155,6 +155,63 @@ class TestPolygon:
         items = p.news("AAPL")
         assert items[0].title == "headline"
         assert items[0].source == "Polygon"
+
+    def test_no_ipo_calendar(self, monkeypatch):
+        p = self._provider(monkeypatch, {})
+        with pytest.raises(NotImplementedError):
+            p.ipo_calendar(date(2025, 2, 1), date(2025, 3, 1))
+
+
+# ---------------------------------------------------------- IPO calendars -----
+class TestIpoCalendars:
+    def test_finnhub_parses_the_sandisk_style_row(self, monkeypatch):
+        monkeypatch.setattr(fh, "get_json", FakeHttp({"/calendar/ipo": {
+            "ipoCalendar": [
+                {"symbol": "SNDK", "name": "Sandisk Corp", "date": "2025-02-21",
+                 "exchange": "NASDAQ", "price": "20.00-24.00", "status": "expected",
+                 "numberOfShares": 1e8},
+                {"symbol": "WDRW", "name": "Withdrawn Co", "date": "2025-02-25",
+                 "price": "10", "status": "withdrawn"},
+            ]
+        }}))
+        events = fh.FinnhubProvider("k").ipo_calendar(date(2025, 2, 1), date(2025, 3, 1))
+        assert len(events) == 2
+        sndk = next(e for e in events if e.symbol == "SNDK")
+        assert sndk.name == "Sandisk Corp"
+        assert sndk.ipo_date == date(2025, 2, 21)
+        assert (sndk.price_low, sndk.price_high) == (20.0, 24.0)
+        assert sndk.expected_price == pytest.approx(22.0)
+        assert sndk.status == "expected"
+
+    def test_finnhub_priced_row_sets_offer(self, monkeypatch):
+        monkeypatch.setattr(fh, "get_json", FakeHttp({"/calendar/ipo": {
+            "ipoCalendar": [{"symbol": "ABC", "name": "Abc", "date": "2025-02-21",
+                             "price": "21.00", "status": "priced"}]
+        }}))
+        e = fh.FinnhubProvider("k").ipo_calendar(date(2025, 2, 1), date(2025, 3, 1))[0]
+        assert e.offer_price == pytest.approx(21.0)
+
+    def test_fmp_parses_price_range_with_dollar_signs(self, monkeypatch):
+        monkeypatch.setattr(fmp, "get_json", FakeHttp({"/ipo_calendar": [
+            {"symbol": "NEWCO", "company": "New Co", "date": "2025-03-05",
+             "exchange": "NYSE", "priceRange": "$18.00 - $20.00",
+             "actions": "expected", "shares": 5e7},
+        ]}))
+        e = fmp.FmpProvider("k").ipo_calendar(date(2025, 3, 1), date(2025, 3, 31))[0]
+        assert e.symbol == "NEWCO"
+        assert (e.price_low, e.price_high) == (18.0, 20.0)
+        assert e.source == "fmp"
+
+    def test_bad_rows_are_skipped_not_crashing(self, monkeypatch):
+        monkeypatch.setattr(fh, "get_json", FakeHttp({"/calendar/ipo": {
+            "ipoCalendar": [
+                {"symbol": "", "date": "2025-02-21"},          # no symbol
+                {"symbol": "X", "date": "not-a-date"},          # bad date
+                {"symbol": "OK", "name": "Ok", "date": "2025-02-21", "price": "5"},
+            ]
+        }}))
+        events = fh.FinnhubProvider("k").ipo_calendar(date(2025, 2, 1), date(2025, 3, 1))
+        assert [e.symbol for e in events] == ["OK"]
 
 
 # -------------------------------------------------------------------- FMP ----

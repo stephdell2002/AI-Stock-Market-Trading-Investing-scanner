@@ -18,7 +18,7 @@
 #>
 param(
   [Parameter(Mandatory = $true)]
-  [ValidateSet('morning', 'intraday', 'evening', 'weekly', 'monthly')]
+  [ValidateSet('morning', 'intraday', 'evening', 'weekly', 'debuts', 'monthly')]
   [string]$Phase
 )
 
@@ -78,6 +78,10 @@ switch ($Phase) {
   }
   'weekly' {
     Invoke-Watchman @('screen')
+  }
+  'debuts' {
+    # New/upcoming listings + data-driven verdicts. Needs a Finnhub or FMP key.
+    Invoke-Watchman @('debuts')
   }
   'monthly' {
     Invoke-Watchman @('report', '--rebalance-longterm')

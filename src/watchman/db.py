@@ -127,6 +127,26 @@ CREATE TABLE IF NOT EXISTS longterm_rebalances (
     holdings     TEXT NOT NULL           -- JSON symbol -> target weight
 );
 
+CREATE TABLE IF NOT EXISTS debut_events (
+    run_at        TEXT NOT NULL,          -- when the debuts scan ran
+    symbol        TEXT NOT NULL,
+    name          TEXT,
+    ipo_date      TEXT NOT NULL,
+    status        TEXT,                   -- expected|priced|withdrawn|filed
+    is_trading    INTEGER NOT NULL,
+    days_since_ipo INTEGER,
+    current_price REAL,
+    vs_offer_pct  REAL,
+    cohort_basis  TEXT,
+    cohort_sample INTEGER,
+    cohort_median_90d REAL,
+    verdict_label TEXT NOT NULL,
+    verdict_score REAL NOT NULL,
+    reasons       TEXT NOT NULL,          -- JSON list
+    cautions      TEXT NOT NULL,          -- JSON list
+    PRIMARY KEY (run_at, symbol)
+);
+
 CREATE TABLE IF NOT EXISTS screener_runs (
     run_id         INTEGER PRIMARY KEY AUTOINCREMENT,
     run_at         TEXT NOT NULL,

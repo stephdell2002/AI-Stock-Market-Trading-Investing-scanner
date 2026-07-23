@@ -20,12 +20,14 @@ from watchman.data.provider import (
     DataProvider,
     Freshness,
     Fundamentals,
+    IpoEvent,
     NewsItem,
     normalize_bars,
     normalize_intraday_bars,
 )
 from watchman.data.rest_common import (
     check_interval,
+    parse_price_range,
     regular_session_only,
     resolve_freshness,
 )
@@ -159,8 +161,50 @@ class FinnhubProvider(DataProvider):
         out.sort(key=lambda n: n.published_at, reverse=True)
         return out
 
+    def ipo_calendar(self, start, end) -> list[IpoEvent]:
+        data = get_json(
+            f"{BASE}/calendar/ipo",
+            {"from": start.isoformat(), "to": end.isoformat(), "token": self._key},
+        ) or {}
+        out: list[IpoEvent] = []
+        for row in data.get("ipoCalendar", []) or []:
+            symbol = str(row.get("symbol", "")).strip().upper()
+            date_str = row.get("date")
+            if not symbol or not date_str:
+                continue
+            try:
+                ipo_date = datetime.fromisoformat(str(date_str)).date()
+            except ValueError:
+                continue
+            low, high = parse_price_range(row.get("price"))
+            status = str(row.get("status", "")).lower()
+            out.append(
+                IpoEvent(
+                    symbol=symbol,
+                    name=str(row.get("name", "")),
+                    ipo_date=ipo_date,
+                    exchange=str(row.get("exchange", "")),
+                    price_low=low,
+                    price_high=high,
+                    # Finnhub gives a single 'price' once priced; treat a
+                    # collapsed range on a priced row as the offer.
+                    offer_price=(low if status == "priced" and low == high else None),
+                    shares=_num_or_none(row.get("numberOfShares")),
+                    status=status,
+                    source="finnhub",
+                )
+            )
+        out.sort(key=lambda e: e.ipo_date)
+        return out
+
     def quote_freshness(self) -> Freshness:
         return self._freshness
+
+
+def _num_or_none(v) -> float | None:
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return float(v)
+    return None
 
 
 def _pct(v: float | None) -> float | None:

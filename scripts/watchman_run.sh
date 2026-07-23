@@ -16,7 +16,7 @@ set -euo pipefail
 
 PHASE="${1:-}"
 if [[ -z "$PHASE" ]]; then
-  echo "usage: $0 {morning|intraday|evening|weekly|monthly}" >&2
+  echo "usage: $0 {morning|intraday|evening|weekly|debuts|monthly}" >&2
   exit 2
 fi
 
@@ -78,11 +78,17 @@ case "$PHASE" in
   weekly)
     run screen                # refresh the Module A watchlist + deteriorators
     ;;
+  debuts)
+    # New/upcoming listings + data-driven verdicts. Needs a Finnhub or FMP key
+    # (yfinance has no IPO calendar); on yfinance this step just fails, is
+    # tallied, and the runner moves on.
+    run debuts
+    ;;
   monthly)
     run report --rebalance-longterm   # equal-weight into the screener top-N
     ;;
   *)
-    echo "unknown phase '$PHASE' (want morning|intraday|evening|weekly|monthly)" >&2
+    echo "unknown phase '$PHASE' (want morning|intraday|evening|weekly|debuts|monthly)" >&2
     exit 2
     ;;
 esac

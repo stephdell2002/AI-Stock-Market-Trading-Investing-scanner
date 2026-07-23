@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import date as date_type
 from datetime import datetime, time, timedelta
 from enum import StrEnum
 from typing import Any
@@ -109,6 +110,37 @@ class NewsItem:
     source: str = ""
 
 
+@dataclass(frozen=True)
+class IpoEvent:
+    """A new-listing calendar entry (IPO, direct listing, or major spinoff).
+
+    Comes from an official IPO-calendar API (Finnhub/FMP). `ipo_date` is the
+    expected or actual first-trade date; `offer_price` is the final priced
+    offer (None until priced). `status` is the provider's lifecycle label
+    ('expected' | 'priced' | 'withdrawn' | 'filed').
+    """
+
+    symbol: str
+    name: str
+    ipo_date: date_type
+    exchange: str = ""
+    price_low: float | None = None
+    price_high: float | None = None
+    offer_price: float | None = None
+    shares: float | None = None
+    status: str = ""
+    source: str = ""
+
+    @property
+    def expected_price(self) -> float | None:
+        """Best single price estimate: offer if priced, else range midpoint."""
+        if self.offer_price is not None:
+            return self.offer_price
+        if self.price_low is not None and self.price_high is not None:
+            return (self.price_low + self.price_high) / 2
+        return self.price_low or self.price_high
+
+
 @dataclass
 class StatementSet:
     """Annual financial statements for one symbol.
@@ -159,6 +191,10 @@ class DataProvider(ABC):
     def news(self, symbol: str) -> list[NewsItem]:
         """Recent headlines with publish timestamps, newest first."""
         raise NotImplementedError(f"{self.name} does not serve news")
+
+    def ipo_calendar(self, start: date_type, end: date_type) -> list[IpoEvent]:
+        """New listings with an expected/actual first-trade date in [start, end]."""
+        raise NotImplementedError(f"{self.name} does not serve an IPO calendar")
 
     @abstractmethod
     def quote_freshness(self) -> Freshness:
@@ -341,3 +377,14 @@ class AsOfView:
             if item.published_at.astimezone(ET) <= self.as_of:
                 visible.append(item)
         return visible
+
+    def ipo_calendar(self, start: date_type, end: date_type) -> list[IpoEvent]:
+        """New listings with a first-trade date in [start, end].
+
+        Unlike market data, a forward IPO calendar is *meant* to reveal events
+        dated after `as_of` (that's the whole point — you're alerted before a
+        debut). So this is a pass-through, NOT clipped by date. It is therefore
+        a live-only facility: it is not point-in-time reconstructable for a
+        historical backtest, and the debuts runner always pins at 'now'.
+        """
+        return self._provider.ipo_calendar(start, end)

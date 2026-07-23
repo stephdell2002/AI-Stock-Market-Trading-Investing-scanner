@@ -90,11 +90,23 @@ watchman backtest momentum-decile [--years 6] [--deciles 10] [--limit K]
 watchman scan [--limit K]                  # pre-market focus list
 watchman signals [--symbols A,B,C]         # evaluate setups + auto-take paper
 watchman report [--brief morning|evening] [--rebalance-longterm [--force]]
+watchman debuts [--why] [--lookback D] [--horizon D]   # new-listing scanner (F)
 ```
 
 The first `watchman screen` fetches fundamentals for the whole universe (10–20
 min on yfinance); later runs use the SQLite cache. Global `--config-dir` points
 at a different `config/` directory.
+
+## New listings (Module F)
+
+`watchman debuts` detects new and upcoming stock listings from an official IPO
+calendar (Finnhub/FMP) — the "a new stock is tradable" alert — and attaches a
+**data-driven verdict**: how comparable past IPOs actually performed (the base
+rate, with sample size), where this listing sits versus its offer, and a
+deterministic AVOID / CAUTION / NEUTRAL / LEAN_FAVORABLE call whose every input
+is shown. It is deliberately skeptical (IPOs underperform on average; buying
+after a hot first-day pop underperforms), it never says "BUY," and it is not
+advice. Full guide, including the honest limitations: **[docs/debuts.md](docs/debuts.md)**.
 
 ## Scheduling & evaluation
 
@@ -139,6 +151,7 @@ src/watchman/
   signals/      Module B: scanner, ORB/VWAP/rel-vol setups, gate engine
   paper/        Module D: paper books, signal ledger, auto-take + resolve
   report/       self-contained HTML dashboard + dated text briefs
+  debuts/       Module F: new-listing scanner + comparable-cohort verdict
   broker/       Module E contract (read-only) + official-API registry
 scripts/        cron / Task Scheduler runners
 docs/           scheduling + first-90-days evaluation

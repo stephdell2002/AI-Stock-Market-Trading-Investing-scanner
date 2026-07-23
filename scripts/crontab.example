@@ -29,5 +29,10 @@ WATCHMAN_HOME=/REPLACE/WITH/PATH/TO/AI-Stock-Market-Trading-Investing-scanner
 # Sunday 18:00 ET  refresh the Module A screener watchlist + deteriorators
 0 18 * * 0    "$WATCHMAN_HOME/scripts/watchman_run.sh" weekly
 #
+# New/upcoming listings (Module F) + data-driven verdicts. NEEDS a Finnhub or
+# FMP key (yfinance has no IPO calendar); leave commented if you're on yfinance.
+# Weekdays 07:30 ET, before the open:
+# 30 7 * * 1-5   "$WATCHMAN_HOME/scripts/watchman_run.sh" debuts
+#
 # 1st of the month, 18:30 ET  long-term paper rebalance into the screener top-N
 30 18 1 * *   "$WATCHMAN_HOME/scripts/watchman_run.sh" monthly

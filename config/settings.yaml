@@ -57,5 +57,12 @@ signals:
   intraday_interval: 5m         # bar size for setups (1m/5m/15m/30m/60m)
   orb_minutes: 15               # opening-range length for the ORB setup
 
+debuts:
+  # Module F new-listing scanner (needs a Finnhub or FMP key for the IPO
+  # calendar; set data.provider accordingly).
+  lookback_days: 30             # a listing counts as "recent" for this many days
+  horizon_days: 30              # also show upcoming IPOs this many days ahead
+  max_cohort_fetch: 40          # cap on comparable-IPO API pulls per analysis
+
 report:
   output_dir: data/reports      # HTML dashboard + dated morning/evening briefs

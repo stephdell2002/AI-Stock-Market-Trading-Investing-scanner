@@ -20,6 +20,7 @@ from watchman.data.provider import (
     DataProvider,
     Freshness,
     Fundamentals,
+    IpoEvent,
     NewsItem,
     StatementSet,
     normalize_bars,
@@ -27,6 +28,7 @@ from watchman.data.provider import (
 )
 from watchman.data.rest_common import (
     check_interval,
+    parse_price_range,
     regular_session_only,
     resolve_freshness,
 )
@@ -158,6 +160,40 @@ class FmpProvider(DataProvider):
                 )
             )
         out.sort(key=lambda n: n.published_at, reverse=True)
+        return out
+
+    def ipo_calendar(self, start, end) -> list[IpoEvent]:
+        data = get_json(
+            f"{BASE}/ipo_calendar",
+            {"from": start.isoformat(), "to": end.isoformat(), "apikey": self._key},
+        ) or []
+        out: list[IpoEvent] = []
+        for row in data:
+            symbol = str(row.get("symbol", "")).strip().upper()
+            date_str = row.get("date")
+            if not symbol or not date_str:
+                continue
+            try:
+                ipo_date = datetime.fromisoformat(str(date_str)).date()
+            except ValueError:
+                continue
+            low, high = parse_price_range(row.get("priceRange"))
+            action = str(row.get("actions", "")).lower()
+            out.append(
+                IpoEvent(
+                    symbol=symbol,
+                    name=str(row.get("company", "")),
+                    ipo_date=ipo_date,
+                    exchange=str(row.get("exchange", "")),
+                    price_low=low,
+                    price_high=high,
+                    offer_price=(low if action == "priced" and low == high else None),
+                    shares=_num(row.get("shares")),
+                    status=action or "expected",
+                    source="fmp",
+                )
+            )
+        out.sort(key=lambda e: e.ipo_date)
         return out
 
     def quote_freshness(self) -> Freshness:
