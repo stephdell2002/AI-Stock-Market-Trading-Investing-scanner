@@ -53,7 +53,9 @@ for wiring up a live feed and the (deliberately your-call) freshness setting.
 ## The daily rhythm
 
 Watchman is a set of commands you run on the market's clock. Automate them with
-the scheduler ([docs/scheduling.md](docs/scheduling.md)) or run them by hand:
+the scheduler ([docs/scheduling.md](docs/scheduling.md)) or run them by hand.
+The one-page cheat sheet — exact commands per part of the day, split by free vs
+real-time data — is **[docs/daily-driver.md](docs/daily-driver.md)**.
 
 ```bash
 # Before the open (8:00–9:25 ET)
