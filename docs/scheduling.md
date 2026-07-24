@@ -37,34 +37,60 @@ safe.
 
 ## Linux / macOS (cron)
 
-1. Make the runner executable and try a phase by hand first:
+### One command (recommended)
 
-   ```bash
-   chmod +x scripts/watchman_run.sh
-   scripts/watchman_run.sh weekly      # runs `watchman screen`, logs to data/logs/
-   ```
+`scripts/install_cron.sh` reads the canonical ET rhythm, converts it to **your
+machine's timezone**, and merges it into your crontab — touching only Watchman's
+own block (between marker comments), never your other entries. Re-run it any
+time to update.
 
-   Confirm it printed a `... done -> data/logs/weekly-YYYY-MM-DD.log` line and
-   that the log looks sane.
+```bash
+scripts/install_cron.sh                 # convert ET → your local zone, install
+scripts/install_cron.sh --print         # show the lines, don't install
+scripts/install_cron.sh --et            # use CRON_TZ=America/New_York (Linux, DST-safe)
+scripts/install_cron.sh --tz America/Chicago   # a specific zone
+scripts/install_cron.sh --with-debuts   # also schedule the new-listing scan
+```
 
-2. Edit `scripts/crontab.example`: set `WATCHMAN_HOME` to your checkout's
-   absolute path. Then install it:
+Preview first with `--print`, then run it for real. Verify with `crontab -l`.
 
-   ```bash
-   crontab scripts/crontab.example      # replaces your crontab; back up first if needed
-   # or: crontab -e  and paste the lines
-   crontab -l                           # verify
-   ```
+- **On EST/`America/New_York`** the times come out as the raw ET rhythm (08:05
+  morning, 09:35–15:55 intraday, 16:15 evening, Sun 18:00 weekly, 1st 18:30
+  monthly) because your clock *is* the market clock — nothing to convert.
+- **`--et`** bakes in `CRON_TZ=America/New_York` instead of local times, so the
+  schedule tracks the market through US daylight-saving changes automatically.
+  It only works on cron builds that honor `CRON_TZ` (Linux cronie yes;
+  macOS/BSD cron no — use the default local-baked output there).
+- Any fixed-offset North American zone stays correct year-round because it
+  shifts with US DST in lockstep. For zones that *don't* (Europe/Asia), prefer
+  `--et` on Linux, or re-run after a DST change.
 
-3. **Timezone.** The example sets `CRON_TZ=America/New_York`. If your cron is
-   too old to support `CRON_TZ` (some BSD/Vixie builds), delete that line and
-   convert the times to local yourself.
+Under the hood the installer calls `scripts/gen_schedule.py`, which you can run
+directly to inspect the block without touching your crontab:
 
-4. **macOS caveat.** `cron` still works but Apple prefers `launchd`, and cron
-   needs Full Disk Access (System Settings → Privacy & Security) to run
-   unattended. A laptop that sleeps will miss fires — a Mac mini or always-on
-   box is better for the intraday cadence. If you only want the daily
-   bookends, keep `morning` and `evening` and drop the `intraday` lines.
+```bash
+.venv/bin/python scripts/gen_schedule.py --repo "$(pwd)" --tz America/New_York
+```
+
+### By hand
+
+Prefer to paste it yourself? Edit `scripts/crontab.example` (set
+`WATCHMAN_HOME` to your checkout's absolute path) and `crontab -e`, or:
+
+```bash
+chmod +x scripts/watchman_run.sh
+scripts/watchman_run.sh weekly      # smoke-test one phase → data/logs/
+crontab scripts/crontab.example     # replaces your whole crontab; back up first
+```
+
+The example sets `CRON_TZ=America/New_York`; delete that line and convert to
+local if your cron is too old to support it.
+
+**macOS caveat.** `cron` still works but Apple prefers `launchd`, and cron needs
+Full Disk Access (System Settings → Privacy & Security) to run unattended. A
+laptop that sleeps will miss fires — a Mac mini or always-on box is better for
+the intraday cadence. If you only want the daily bookends, keep `morning` and
+`evening` and drop the `intraday` lines.
 
 Logs accumulate under `data/logs/<phase>-<date>.log` (gitignored). A phase
 exits non-zero if any step failed, so you can wire it to your own alerting.
@@ -75,65 +101,51 @@ exits non-zero if any step failed, so you can wire it to your own alerting.
 
 The PowerShell runner `scripts\watchman_run.ps1` mirrors the bash script.
 
-1. Try a phase by hand (from the repo root, in PowerShell):
+### One command (recommended)
 
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts\watchman_run.ps1 weekly
-   ```
+`scripts\register_tasks.ps1` converts the ET rhythm to this machine's local
+time and prints the exact `schtasks` commands to create every task. It **prints
+by default** so you can review them; re-run with `-Run` to actually register.
 
-   If PowerShell blocks the script, the `-ExecutionPolicy Bypass` flag on the
-   command line (as above and in the tasks below) is the least-invasive fix —
-   you don't have to change the machine-wide policy.
+```powershell
+# Preview the commands (nothing is created):
+powershell -ExecutionPolicy Bypass -File scripts\register_tasks.ps1
 
-2. Create one task per phase. Either use the GUI (**Task Scheduler → Create
-   Task**) or run these once in an **Administrator** PowerShell, editing
-   `$Home` to your checkout path:
+# Create the tasks for real:
+powershell -ExecutionPolicy Bypass -File scripts\register_tasks.ps1 -Run
 
-   ```powershell
-   $Repo = "C:\path\to\AI-Stock-Market-Trading-Investing-scanner"
-   $Ps   = "powershell.exe"
+# Include the optional new-listing scan (needs a Finnhub/FMP key):
+powershell -ExecutionPolicy Bypass -File scripts\register_tasks.ps1 -IncludeDebuts -Run
+```
 
-   function New-WatchmanTask($Name, $Phase, $Trigger) {
-     $action = New-ScheduledTaskAction -Execute $Ps `
-       -Argument "-ExecutionPolicy Bypass -File `"$Repo\scripts\watchman_run.ps1`" $Phase" `
-       -WorkingDirectory $Repo
-     Register-ScheduledTask -TaskName $Name -Action $action -Trigger $Trigger `
-       -Description "Watchman $Phase phase" -Force
-   }
+It reads your machine's local timezone via `[TimeZoneInfo]::Local` and
+converts each ET time for you, so on an EST box the tasks fire at the natural ET
+times and on a Pacific box they fire three hours earlier — no arithmetic on your
+part. `-ExecutionPolicy Bypass` on the command line avoids changing the
+machine-wide policy. Run it from an **Administrator** PowerShell so `schtasks`
+can create the tasks.
 
-   # Times below are LOCAL — convert from the ET column in the daily-rhythm
-   # table to your timezone (e.g. ET+3 for US Pacific would be 05:05 for morning).
-   New-WatchmanTask "Watchman Morning" "morning" `
-     (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday -At 8:05am)
+The tasks it creates: Morning & Evening (weekly, Mon–Fri), Weekly (Sun),
+Monthly (1st of month), and Intraday (every 5 minutes between the converted
+open and close). The intraday task, like cron's `*/5` schedule, also ticks on
+weekends — the runner just no-ops when the market is closed.
 
-   New-WatchmanTask "Watchman Evening" "evening" `
-     (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday -At 4:15pm)
+### By hand
 
-   New-WatchmanTask "Watchman Weekly" "weekly" `
-     (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 6:00pm)
-   ```
+Prefer the GUI or want to tweak the triggers? Try a phase first:
 
-3. **Intraday every 5 minutes.** Task Scheduler can repeat a task on an
-   interval within a window. Create the task, then on its **Triggers** tab edit
-   the daily trigger: *Repeat task every 5 minutes for a duration of 7 hours*,
-   starting at 09:35 (local-adjusted from ET). Or in PowerShell:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\watchman_run.ps1 weekly
+```
 
-   ```powershell
-   $t = New-ScheduledTaskTrigger -Daily -At 9:35am
-   $t.Repetition = (New-ScheduledTaskTrigger -Once -At 9:35am `
-     -RepetitionInterval (New-TimeSpan -Minutes 5) `
-     -RepetitionDuration (New-TimeSpan -Hours 7)).Repetition
-   New-WatchmanTask "Watchman Intraday" "intraday" $t
-   ```
-
-4. **Timezone.** Task Scheduler triggers are always local time — there is no
-   ET option. Convert the ET times yourself, and note you'll be one hour off
-   for the ~3 weeks a year when US and your DST transitions don't line up. If
-   that bothers you, run only `morning`/`evening` and check intraday manually.
-
-5. **Wake / power.** In each task's **Conditions** tab, tick *Wake the
-   computer to run this task* (and untick *Start only on AC power* on a laptop)
-   if you want it to fire while the machine sleeps.
+Then create one task per phase (**Task Scheduler → Create Task**, or
+`Register-ScheduledTask` / `schtasks` in an Administrator PowerShell). Remember
+Task Scheduler triggers are always **local** time — convert from the ET column
+in the daily-rhythm table, and note you'll be one hour off for the ~3 weeks a
+year when US and your DST transitions don't line up. In each task's
+**Conditions** tab, tick *Wake the computer to run this task* (and untick
+*Start only on AC power* on a laptop) if you want it to fire while the machine
+sleeps.
 
 ---
 

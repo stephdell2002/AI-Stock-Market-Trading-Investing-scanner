@@ -39,6 +39,9 @@ class TestFilesExist:
             "scripts/watchman_run.sh",
             "scripts/watchman_run.ps1",
             "scripts/crontab.example",
+            "scripts/gen_schedule.py",
+            "scripts/install_cron.sh",
+            "scripts/register_tasks.ps1",
             "docs/scheduling.md",
             "docs/first-90-days.md",
             "docs/realtime-data.md",
@@ -53,9 +56,10 @@ class TestFilesExist:
 
 class TestShellScript:
     @pytest.mark.skipif(shutil.which("bash") is None, reason="bash not available")
-    def test_bash_syntax_is_valid(self):
+    @pytest.mark.parametrize("script", ["watchman_run.sh", "install_cron.sh"])
+    def test_bash_syntax_is_valid(self, script):
         result = subprocess.run(
-            ["bash", "-n", str(SCRIPTS / "watchman_run.sh")],
+            ["bash", "-n", str(SCRIPTS / script)],
             capture_output=True, text=True,
         )
         assert result.returncode == 0, result.stderr
