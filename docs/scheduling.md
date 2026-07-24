@@ -33,6 +33,13 @@ safe.
 > During US daylight-saving changes, ET-aware scheduling keeps you aligned to
 > the market automatically; hard-coded local times do not.
 
+> **Laptop that sleeps?** The intraday phase fires every 5 minutes during the
+> session, so a machine that sleeps or travels misses those fires and leaves
+> holes in the paper record. Run the schedule on a host that stays on 24/5 (a
+> small VPS, a Raspberry Pi, a home server) — see
+> **[always-on.md](always-on.md)** for the full one-time setup. It's still
+> paper-only, so an unattended box carries no execution risk.
+
 ---
 
 ## Linux / macOS (cron)

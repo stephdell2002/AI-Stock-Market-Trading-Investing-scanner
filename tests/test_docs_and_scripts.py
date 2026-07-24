@@ -43,6 +43,7 @@ class TestFilesExist:
             "scripts/install_cron.sh",
             "scripts/register_tasks.ps1",
             "docs/scheduling.md",
+            "docs/always-on.md",
             "docs/first-90-days.md",
             "docs/realtime-data.md",
             "docs/debuts.md",
@@ -115,6 +116,17 @@ class TestDocsMatchCli:
         assert "underperform" in text          # documented IPO reality
         assert "base rate" in text
         assert "skeptical" in text             # the verdict never just says BUY
+
+    def test_always_on_doc_keeps_its_honesty_spine(self):
+        text = (DOCS / "always-on.md").read_text().lower()
+        # Running unattended must not quietly imply real trading or real-time.
+        assert "paper only" in text or "paper-only" in text
+        assert "no real orders" in text or "places no real orders" in text
+        # A server does not turn a delayed feed real-time.
+        assert "delayed" in text
+        # The point of the doc: keep intraday firing when the laptop sleeps.
+        assert "intraday" in text
+        assert "install_cron.sh --et" in text   # the DST-safe install it recommends
 
     def test_readme_marks_all_phases_done(self):
         text = (REPO / "README.md").read_text()

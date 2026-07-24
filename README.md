@@ -116,6 +116,13 @@ advice. Full guide, including the honest limitations: **[docs/debuts.md](docs/de
   unattended via **cron** (Linux/macOS, `scripts/watchman_run.sh` +
   `scripts/crontab.example`) or **Windows Task Scheduler**
   (`scripts/watchman_run.ps1`), including the all-important ET timezone note.
+  One-command installers (`scripts/install_cron.sh`,
+  `scripts/register_tasks.ps1`) convert the ET schedule to your timezone for
+  you.
+- **[docs/always-on.md](docs/always-on.md)** — run it on a host that stays on
+  24/5 (a small VPS, a Raspberry Pi, a home server) so the every-5-minute
+  intraday phase keeps firing even when your laptop sleeps. Still paper-only,
+  so an unattended box carries no execution risk.
 - **[docs/first-90-days.md](docs/first-90-days.md)** — the go/no-go checklist
   for deciding whether any signal has earned real capital. Read this before you
   ever think about funding the strategy; the default answer is "not yet."
